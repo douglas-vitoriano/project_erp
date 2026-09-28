@@ -80,20 +80,28 @@ prototipo/
     └── painel.js       indicadores do painel
 ```
 
-## Publicar no GitHub Pages
+## Publicação
 
-O protótipo é estático, então o Pages serve sem configuração. Duas opções:
+Já está publicado, automaticamente, em
+**<https://douglas-vitoriano.github.io/project_erp/>**
 
-**Publicar só a pasta do protótipo, na raiz do site.** Crie um repositório, copie o conteúdo de
-`prototipo/` para a raiz dele, e em *Settings → Pages* escolha *Deploy from a branch*, branch `main`,
-pasta `/ (root)`.
+Não há nada a configurar na mão. O workflow [`.github/workflows/pages.yml`](../.github/workflows/pages.yml)
+publica esta pasta como **raiz do site** a cada alteração em `prototipo/` na branch `main` — por isso o
+endereço é `/project_erp/` e não `/project_erp/prototipo/`.
 
-**Publicar o repositório inteiro.** Em *Settings → Pages* escolha branch `main`, pasta `/ (root)`, e
-acesse `https://<usuario>.github.io/<repo>/prototipo/`. Os caminhos internos são todos relativos, então
-funciona em subpasta sem ajuste.
+Antes de publicar, o workflow verifica quatro coisas, e qualquer uma delas falhando aborta a publicação:
 
-Em qualquer um dos casos, adicione um arquivo `.nojekyll` vazio na raiz publicada. Sem ele o Jekyll
-processa o site e pode ignorar arquivos e pastas que comecem com `_`.
+1. **Sintaxe do JavaScript** (`node --check` em cada arquivo de `js/`). Protótipo sem etapa de build não
+   tem compilador para pegar erro de sintaxe; este passo faz esse papel.
+2. **Referências existentes**: todo `src` e `href` de `.js` e `.css` nas páginas aponta para um arquivo
+   que existe. Sem isso, renomear um arquivo e esquecer a referência abre a página em branco e ninguém
+   percebe até alguém acessar.
+3. **Entrada do site**: `index.html` presente.
+4. **Nenhuma evidência do legado versionada**: se um print, PDF ou planilha da pasta `Print PcBoot/`
+   escapar do `.gitignore`, a publicação para. O repositório é público e aquela pasta tem dado real de
+   cliente.
+
+Para publicar sem alterar nada, use *Actions → Publicar protótipo no GitHub Pages → Run workflow*.
 
 ## O que este protótipo não é
 

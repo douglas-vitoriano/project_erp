@@ -9,10 +9,23 @@ da interface. Ainda não há backend.
 
 ## Protótipo navegável
 
-Quatro dispositivos, um sistema — escritório, tablet de máquina, tablet do vendedor e painel de fábrica.
-É HTML, CSS e JavaScript puros, sem dependência externa e sem etapa de build.
+**▶ <https://douglas-vitoriano.github.io/project_erp/>**
 
-👉 **[Abrir o protótipo](prototipo/index.html)** · detalhes em [`prototipo/README.md`](prototipo/README.md)
+[![Publicar protótipo no GitHub Pages](https://github.com/douglas-vitoriano/project_erp/actions/workflows/pages.yml/badge.svg)](https://github.com/douglas-vitoriano/project_erp/actions/workflows/pages.yml)
+
+Quatro dispositivos, um sistema — escritório, tablet de máquina, tablet do vendedor e painel de fábrica.
+É HTML, CSS e JavaScript puros, sem dependência externa e sem etapa de build. Publicado automaticamente
+a cada alteração em `prototipo/`; detalhes em [`prototipo/README.md`](prototipo/README.md).
+
+Por onde começar, dependendo do que você quer ver:
+
+| Quero ver | Abrir |
+|---|---|
+| O cálculo de caixa recalculando ao vivo | [Engenharia · F.T. 92281](https://douglas-vitoriano.github.io/project_erp/escritorio.html#engenharia/92281) |
+| Como o operador aponta produção na máquina | [Tablet · Corte e Vinco 01](https://douglas-vitoriano.github.io/project_erp/maquina.html?posto=m3) |
+| A assinatura do cliente sendo coletada offline | [App do vendedor](https://douglas-vitoriano.github.io/project_erp/campo.html) |
+| Onde está cada pedido | [Rastreamento](https://douglas-vitoriano.github.io/project_erp/escritorio.html#rastreamento) |
+| O que trava a fábrica hoje | [Painel de galpão](https://douglas-vitoriano.github.io/project_erp/painel.html) |
 
 Duas coisas nele funcionam de verdade, porque são o coração técnico do projeto:
 
@@ -82,6 +95,17 @@ O repositório é público, então **nenhum dado real de cliente está versionad
 | Frente | Situação |
 |---|---|
 | Documentação de arquitetura, engenharia e banco | Escrita e revisada |
-| Protótipo de interface dos quatro dispositivos | Navegável |
+| Protótipo de interface dos quatro dispositivos | Navegável e publicado |
 | Identificação do banco legado | Script pronto, aguardando execução na fábrica |
 | Backend, banco e migração | Não iniciados |
+
+## Estrutura do repositório
+
+```
+├── README.md                    este arquivo
+├── .github/workflows/pages.yml  verifica e publica o protótipo no Pages
+├── docs/                        arquitetura, engenharia, banco de dados e ADRs
+├── etl/descoberta/              script somente leitura que identifica o banco do legado
+├── prototipo/                   protótipo navegável (é a raiz do site publicado)
+└── Novo Documento de Texto.txt  modelo de dados v0, superado pelo doc 03 (registro histórico)
+```

@@ -1,0 +1,116 @@
+name: Publicar protótipo no GitHub Pages
+
+# A pasta prototipo/ é publicada como raiz do site, então o endereço final é
+# https://douglas-vitoriano.github.io/project_erp/ e não .../project_erp/prototipo/.
+# A documentação continua sendo lida no próprio GitHub, que renderiza Markdown.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'prototipo/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# O token desta execução precisa de 'pages: write' para que o passo
+# actions/configure-pages consiga habilitar o Pages na primeira vez.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicação por vez, sem cancelar a que já está em andamento.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    name: Verificar o protótipo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Protótipo sem etapa de build não tem compilador para pegar erro de
+      # sintaxe. Este passo faz esse papel: JavaScript quebrado não é publicado.
+      - name: Conferir a sintaxe do JavaScript
+        run: |
+          falhou=0
+          for arquivo in prototipo/js/*.js; do
+            if node --check "$arquivo"; then
+              echo "ok      $arquivo"
+            else
+              echo "FALHOU  $arquivo"
+              falhou=1
+            fi
+          done
+          exit $falhou
+
+      # Cada página carrega os scripts por <script src>. Se um arquivo for
+      # renomeado e a referência não, a página abre em branco e ninguém percebe
+      # até alguém acessar. Aqui isso vira erro de pipeline.
+      - name: Conferir se todo arquivo referenciado existe
+        run: |
+          falhou=0
+          for pagina in prototipo/*.html; do
+            referencias=$(grep -oE '(src|href)="[^"#:]+\.(js|css)"' "$pagina" \
+              | sed -E 's/.*="([^"]+)"/\1/' | sort -u)
+            for ref in $referencias; do
+              if [ -f "prototipo/$ref" ]; then
+                echo "ok      $(basename "$pagina") -> $ref"
+              else
+                echo "FALTA   $(basename "$pagina") -> $ref"
+                falhou=1
+              fi
+            done
+          done
+          exit $falhou
+
+      - name: Conferir a entrada do site
+        run: test -f prototipo/index.html
+
+      # O repositório é público e a evidência do levantamento tem dado de cliente.
+      # Se algum print, PDF ou planilha escapar do .gitignore, a publicação para.
+      - name: Conferir que nenhuma evidência do legado vazou
+        run: |
+          vazou=$(git ls-files \
+            | grep -iE '(^Print PcBoot/|\.(jpe?g|png|pdf|xlsx?|mdb|dbf)$)' || true)
+          if [ -n "$vazou" ]; then
+            echo "Arquivo de evidência versionado — publicação abortada:"
+            echo "$vazou"
+            exit 1
+          fi
+          echo "ok: nenhuma evidência do legado no repositório"
+
+  publicar:
+    name: Publicar
+    needs: verificar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.publicacao.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # enablement: true habilita o GitHub Pages caso ainda não esteja ligado,
+      # usando o token desta execução. Evita ter que ligar na mão em Settings.
+      - name: Configurar o Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Empacotar a pasta do protótipo
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: prototipo
+
+      - name: Publicar no Pages
+        id: publicacao
+        uses: actions/deploy-pages@v4
+
+      - name: Endereço publicado
+        run: echo "Protótipo no ar em ${{ steps.publicacao.outputs.page_url }}"
