@@ -67,6 +67,9 @@ dentro dos documentos.
 | [docs/04-MARCA.md](docs/04-MARCA.md) | Identidade do BoxFlow, paleta com contraste medido, e o contrato de marca branca por contratante |
 | [docs/05-INFRAESTRUTURA-E-CUSTOS.md](docs/05-INFRAESTRUTURA-E-CUSTOS.md) | Onde hospedar, quanto custa, domínio HTTPS sem Registro.br |
 | [docs/06-PARIDADE-COMPETITIVA.md](docs/06-PARIDADE-COMPETITIVA.md) | Comparação com o Kiwiplan: as lacunas reais, a ordem em que fecham e o que não vamos copiar |
+| [docs/07-CRIACAO-DO-PROJETO.md](docs/07-CRIACAO-DO-PROJETO.md) | Comandos do zero à aplicação Rails rodando: versões fixadas, `rails new`, gems locais, Postgres local |
+| [docs/08-MIGRACOES.md](docs/08-MIGRACOES.md) | O esquema em 25 migrações na ordem que funciona, DDL de Row Level Security e verificação |
+| [docs/09-PROVISIONAMENTO.md](docs/09-PROVISIONAMENTO.md) | Runbook do Fly.io do zero ao HTTPS: banco, certificado curinga, backup com ensaio de restore |
 | [docs/adr/](docs/adr/) | Registros de decisão de arquitetura — o "por quê" de cada escolha estrutural |
 
 O processo para manter os documentos vivos quando houver mudança está em

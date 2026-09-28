@@ -14,11 +14,16 @@ cartonagem vendido como SaaS. O primeiro contratante substitui o **Sistema Carto
 | [04-MARCA.md](04-MARCA.md) | Identidade do BoxFlow, paleta, contraste medido, e o contrato de marca branca por contratante | Produto, interface, comercial |
 | [05-INFRAESTRUTURA-E-CUSTOS.md](05-INFRAESTRUTURA-E-CUSTOS.md) | Onde hospedar, quanto custa, domínio HTTPS sem Registro.br, plano de migração de provedor | Infra, financeiro |
 | [06-PARIDADE-COMPETITIVA.md](06-PARIDADE-COMPETITIVA.md) | Comparação com o Kiwiplan: as lacunas reais, a ordem em que fecham, o que não vamos copiar e os critérios de aceite | Produto, desenvolvimento, comercial |
+| [07-CRIACAO-DO-PROJETO.md](07-CRIACAO-DO-PROJETO.md) | Comandos do zero à aplicação Rails rodando: versões fixadas, `rails new`, gems locais, Postgres local com os dois papéis, RSpec | Desenvolvimento |
+| [08-MIGRACOES.md](08-MIGRACOES.md) | O esquema em 25 migrações na ordem que funciona, o auxiliar de colunas padrão, DDL de RLS e verificação | Desenvolvimento, DBA |
+| [09-PROVISIONAMENTO.md](09-PROVISIONAMENTO.md) | Runbook do Fly.io do zero ao HTTPS: Postgres, certificado curinga, backup com ensaio de restore, alertas | Infra |
 | [adr/](adr/) | Registros de decisão de arquitetura — o "por quê" de cada escolha estrutural | Todos |
 
 Leia na ordem 00 → 01 → 02 → 03. A marca (04) e a infraestrutura (05) são independentes e podem ser
-lidas a qualquer momento. O 06 é o roteiro de evolução funcional e supõe o 02 e o 03 lidos. Os ADRs são
-referenciados de dentro dos documentos.
+lidas a qualquer momento. O 06 é o roteiro de evolução funcional e supõe o 02 e o 03 lidos.
+
+O 07, o 08 e o 09 são **operacionais, não descritivos**: são os comandos a executar, nessa ordem, e os três
+juntos levam de repositório vazio ao sistema no ar. Os ADRs são referenciados de dentro dos documentos.
 
 ## Decisões de arquitetura
 
@@ -90,3 +95,4 @@ dos testes de regressão descritos em [02-ENGENHARIA §4.4](02-ENGENHARIA.md).
 | 27/09/2026 | Criação do conjunto inicial de documentos (00 a 03 + ADRs 0001–0003) |
 | 28/09/2026 | Produto nomeado **BoxFlow** e transformado em SaaS: documentos 04 (marca) e 05 (infraestrutura e custos) criados, ADRs 0004–0006 adicionados, ADR-0001 marcado como superado. Acentuação deste arquivo recuperada |
 | 28/09/2026 | Documento 06 (paridade competitiva contra o Kiwiplan) criado, com ADRs 0007 e 0008. Doc 03 ganhou regras de velocidade, proposta de sequência, não conformidade e veículo; doc 02 ganhou o motor de regras, o sequenciador e as fases 8 e 9 |
+| 28/09/2026 | Documentos operacionais 07 (criação do projeto), 08 (migrações) e 09 (provisionamento) criados: os comandos que levam de repositório vazio a sistema no ar. Doc 03 corrigido quanto a `uuidv7()` e `pgcrypto` |

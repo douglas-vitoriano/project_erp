@@ -86,9 +86,12 @@ qualidade_dado  text         check (qualidade_dado in ('OK','SUSPEITO','INCOMPLE
 
 Notas:
 
-- `gen_random_uuid()` (extensão `pgcrypto`) é o padrão. **Preferência por UUIDv7** quando disponível
-  (Postgres 18 ou extensão `pg_uuidv7`), por ser ordenável no tempo — reduz fragmentação de índice em
-  tabelas que recebem milhões de eventos. A troca é transparente para a aplicação.
+- O padrão é **`uuidv7()`**, nativo do Postgres 18, que é a versão fixada em
+  [07 §1](07-CRIACAO-DO-PROJETO.md#1-versões-e-por-que-são-fixadas). Por ser ordenável no tempo, reduz
+  fragmentação de índice nas tabelas que recebem milhões de eventos. Os trechos de DDL abaixo escrevem
+  `gen_random_uuid()` porque são anteriores a essa decisão; leia como `uuidv7()`, e note que
+  `gen_random_uuid()` **é função do núcleo do Postgres desde a versão 13** — não depende de `pgcrypto`,
+  como uma versão anterior deste documento afirmava. A troca é transparente para a aplicação.
 - `empresa_id` existe porque o legado já opera **multi-empresa dentro da mesma instalação** (campo
   `Empresa` no cadastro de cliente). Tabelas realmente globais do tenant omitem essa coluna e isso é
   anotado caso a caso.
@@ -98,9 +101,10 @@ Notas:
 ### 2.3 Domínios e tipos
 
 ```sql
-create extension if not exists pgcrypto;
 create extension if not exists pg_trgm;      -- busca por similaridade em razão social / referência
 create extension if not exists btree_gist;   -- restrição de exclusão por período
+create extension if not exists pgcrypto;     -- digest() na cadeia de hash da assinatura (§7),
+                                             -- NÃO para gerar UUID: uuidv7() é nativo no Postgres 18
 
 create domain dinheiro       as numeric(14,4);
 create domain percentual     as numeric(9,4)  check (value >= 0 and value <= 100);
@@ -128,8 +132,10 @@ depender de deploy para isso.
 6. `timestamptz` sempre — nunca `timestamp` sem fuso. Tablet em rua e servidor precisam concordar.
 7. **A ordem de leitura deste documento não é a ordem de criação das tabelas.** Os módulos estão agrupados
    por assunto, então há referência para frente (`necessidade_chapa` aponta para `item`, que só aparece no
-   §12). A ordem real de criação é resolvida nas migrações, e é por isso que o `structure.sql` é a fonte da
-   verdade do schema, não este texto.
+   §12). A ordem real de criação está em [08-MIGRACOES §2](08-MIGRACOES.md#2-a-ordem-em-vinte-e-cinco-migrações),
+   e as três dependências que cruzam módulos estão no
+   [§3 de lá](08-MIGRACOES.md#3-as-três-dependências-que-cruzam-módulos). É também por isso que o
+   `structure.sql` é a fonte da verdade do schema, não este texto.
 
 ---
 
@@ -2980,3 +2986,4 @@ select a.tenant_id, a.empresa_id, a.id, a.numero, a.data_emissao,
 | 27/09/2026 | — | Versão inicial. Substitui o modelo v0 (`Novo Documento de Texto.txt`), acrescentando os módulos de Engenharia de Produto, Amostras, Produção (Fichas de Serviço), Sincronização, Suprimentos, Expedição e a expansão de Fiscal e Financeiro |
 | 28/09/2026 | — | Paridade competitiva ([06](06-PARIDADE-COMPETITIVA.md)): novas `maquina_regra` e `maquina_setup_transicao` (§10.2), `sequencia_proposta` e `sequencia_proposta_item` (§10.3), `nao_conformidade` e `acao_corretiva` (§11.2), `veiculo` (§12); coluna `fase` obrigatória no apontamento de refugo; `carga` com ocupação; views `vw_apontamento_suspeito` e `vw_aderencia_sequencia`; regra transversal 7 sobre ordem de criação; questões D9 a D11 |
 | 27/09/2026 | — | Confirmado que a empresa **compra chapa pronta e converte**. Ajustes: `qualidade_chapa` separada de `qualidade_chapa_fornecedor`; nova tabela `necessidade_chapa`; SKU de chapa = qualidade + formato com índice único; `item.tipo` sem `BOBINA`; `maquina.tipo` sem `ONDULADEIRA` e com tipos de conversão; `operacao` com carga inicial de conversão; `ordem_fabricacao` com `AGUARDANDO_CHAPA` e `data_chapa_prevista`; `recebimento_item` com conferência de qualidade de entrada |
+| 28/09/2026 | — | Chave primária passa a `uuidv7()` nativo do Postgres 18; corrigida a afirmação de que `gen_random_uuid()` dependia de `pgcrypto` (é do núcleo desde o PG 13, e `pgcrypto` fica só pelo `digest()` da assinatura); regra transversal 7 passa a apontar a ordem de criação em [08](08-MIGRACOES.md) |
