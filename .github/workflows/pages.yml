@@ -29,11 +29,11 @@ jobs:
     name: Verificar o protótipo
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
       # Protótipo sem etapa de build não tem compilador para pegar erro de
       # sintaxe. Este passo faz esse papel: JavaScript quebrado não é publicado.
@@ -94,14 +94,43 @@ jobs:
       name: github-pages
       url: ${{ steps.publicacao.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # enablement: true habilita o GitHub Pages caso ainda não esteja ligado,
       # usando o token desta execução. Evita ter que ligar na mão em Settings.
+      #
+      # Isso só funciona se o token do workflow puder escrever: em repositório
+      # novo o padrão do GitHub é somente leitura, e aí a chamada volta como
+      # "Resource not accessible by integration". O passo seguinte traduz esse
+      # erro em instrução, em vez de deixar a mensagem crua da API.
       - name: Configurar o Pages
+        id: configurar
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
+
+      - name: Explicar o que falta, se a configuração falhou
+        if: steps.configurar.outcome == 'failure'
+        run: |
+          {
+            echo "## Falta um ajuste único nas configurações do repositório"
+            echo
+            echo 'O workflow pediu `pages: write`, mas o token desta execução está'
+            echo 'em modo somente leitura, então não conseguiu criar o site do Pages.'
+            echo
+            echo '**Como resolver, uma vez só:**'
+            echo
+            echo '1. Abra **Settings → Actions → General**'
+            echo '2. Em *Workflow permissions*, marque **Read and write permissions**'
+            echo '3. Clique em **Save**'
+            echo '4. Volte em **Actions → Publicar protótipo no GitHub Pages → Run workflow**'
+            echo
+            echo 'A partir daí a publicação passa a ser automática a cada alteração'
+            echo 'em `prototipo/`, e este passo não aparece mais.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error title=Permissão do token::Marque 'Read and write permissions' em Settings > Actions > General e rode o workflow de novo."
+          exit 1
 
       - name: Empacotar a pasta do protótipo
         uses: actions/upload-pages-artifact@v3

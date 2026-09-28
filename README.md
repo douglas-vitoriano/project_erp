@@ -17,6 +17,10 @@ Quatro dispositivos, um sistema — escritório, tablet de máquina, tablet do v
 É HTML, CSS e JavaScript puros, sem dependência externa e sem etapa de build. Publicado automaticamente
 a cada alteração em `prototipo/`; detalhes em [`prototipo/README.md`](prototipo/README.md).
 
+> **Primeira publicação:** falta marcar **Read and write permissions** em *Settings → Actions → General*
+> e rodar o workflow. Sem isso o GitHub não deixa o workflow habilitar o Pages, e o endereço acima
+> responde 404. É um clique, uma vez só.
+
 Por onde começar, dependendo do que você quer ver:
 
 | Quero ver | Abrir |

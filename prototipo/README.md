@@ -82,12 +82,17 @@ prototipo/
 
 ## Publicação
 
-Já está publicado, automaticamente, em
-**<https://douglas-vitoriano.github.io/project_erp/>**
+Endereço do protótipo: **<https://douglas-vitoriano.github.io/project_erp/>**
 
-Não há nada a configurar na mão. O workflow [`.github/workflows/pages.yml`](../.github/workflows/pages.yml)
-publica esta pasta como **raiz do site** a cada alteração em `prototipo/` na branch `main` — por isso o
-endereço é `/project_erp/` e não `/project_erp/prototipo/`.
+O workflow [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) publica esta pasta como
+**raiz do site** a cada alteração em `prototipo/` na branch `main` — por isso o endereço é
+`/project_erp/` e não `/project_erp/prototipo/`.
+
+> **Um ajuste é necessário na primeira vez.** Em repositório novo o GitHub deixa o token dos workflows
+> em modo somente leitura, e aí o passo que habilita o Pages falha com
+> `Resource not accessible by integration`. Para resolver, uma vez só: **Settings → Actions → General
+> → Workflow permissions → Read and write permissions → Save**, e então **Actions → Publicar protótipo
+> no GitHub Pages → Run workflow**. Depois disso a publicação é automática e o assunto não volta.
 
 Antes de publicar, o workflow verifica quatro coisas, e qualquer uma delas falhando aborta a publicação:
 
