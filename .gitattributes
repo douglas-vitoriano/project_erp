@@ -1,0 +1,24 @@
+# Normaliza final de linha no repositório para LF, mantendo o checkout nativo de
+# cada sistema. Sem isso, um script que grava com "\n" produz diff de arquivo
+# inteiro em vez do trecho que realmente mudou.
+* text=auto
+
+*.md       text
+*.py       text
+*.mjs      text
+*.js       text
+*.css      text
+*.html     text
+*.svg      text
+*.json     text
+*.yml      text
+*.sql      text
+*.ps1      text eol=crlf
+
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.pdf      binary
+*.ttf      binary
+*.otf      binary
+*.woff2    binary

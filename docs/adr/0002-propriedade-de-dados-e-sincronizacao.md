@@ -1,9 +1,17 @@
 # ADR-0002 — Propriedade explícita de dados em vez de resolução de conflito
 
-- **Status:** Aceito
-- **Data:** 27/09/2026
-- **Depende de:** [ADR-0001](0001-topologia-hibrida-local-nuvem.md)
+- **Status:** Aceito, e **simplificado** pelo [ADR-0004](0004-nuvem-pura-sem-servidor-na-fabrica.md)
+- **Data:** 27/09/2026 · nota de simplificação em 28/09/2026
 - **Contexto relacionado:** [01-ARQUITETURA §6](../01-ARQUITETURA.md#6-sincronização), [02-ENGENHARIA §6](../02-ENGENHARIA.md#6-motor-de-sincronização)
+
+> **Nota de 28/09/2026.** Este ADR foi escrito quando havia dois servidores. Com a nuvem pura do
+> [ADR-0004](0004-nuvem-pura-sem-servidor-na-fabrica.md), sobrou **um** eixo de sincronização
+> (dispositivo ↔ nuvem), e onde o texto abaixo diz "Nó Fábrica" leia-se simplesmente **o servidor**.
+>
+> A decisão não só continua válida, ela foi o que **viabilizou** a nuvem pura: por esta classificação,
+> tudo que a fábrica produz é *fato imutável*, e fato imutável sincroniza por união de conjuntos. Foi
+> isso que permitiu tirar o servidor de dentro da fábrica sem inventar mecanismo novo de resolução de
+> conflito.
 
 ## Contexto
 

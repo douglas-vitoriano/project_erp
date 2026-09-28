@@ -1,10 +1,12 @@
 # 03 — Banco de Dados
 
-Modelo de dados completo do ERP Cartonagem. **Substitui** o arquivo
+Modelo de dados completo do **BoxFlow**. **Substitui** o arquivo
 `Novo Documento de Texto.txt` (modelo v0), cujo conteúdo foi integralmente absorvido.
 
-PostgreSQL 16+. Todo DDL abaixo é o desenho de referência; a implementação sai em migrações
-versionadas conforme [02-ENGENHARIA §3.3](02-ENGENHARIA.md#33-migrações-de-banco).
+PostgreSQL 16+, **um banco para todos os contratantes**, isolados por `tenant_id` com Row Level Security
+([01-ARQUITETURA §7](01-ARQUITETURA.md)). Todo DDL abaixo é o desenho de referência; a implementação sai
+em migrações versionadas conforme [02-ENGENHARIA §3.3](02-ENGENHARIA.md#33-migrações-de-banco) — com
+`schema_format = :sql`, porque `EXCLUDE`, RLS e domínio com `CHECK` não cabem no `schema.rb` do Rails.
 
 ## 1. Visão macro dos módulos
 
@@ -62,8 +64,8 @@ empresa_id      uuid         not null references empresa(id),
 
 -- controle de versão e sincronização (ver módulo 2)
 versao          bigint       not null default 1,
-no_origem       uuid         not null references no_sincronizacao(id),
-proprietario_no uuid                  references no_sincronizacao(id),
+dispositivo_origem_id uuid            references dispositivo(id),
+proprietario_dispositivo_id uuid      references dispositivo(id),
 
 -- auditoria
 criado_em       timestamptz  not null default now(),
@@ -122,7 +124,7 @@ depender de deploy para isso.
 3. **Índice composto `(tenant_id, empresa_id, status, criado_em desc)`** nas tabelas de listagem pesada.
 4. **RLS (Row Level Security)** habilitada por `tenant_id` nas tabelas multi-tenant, como rede de
    segurança além do filtro da aplicação.
-5. Toda tabela replicada entre nós tem gatilho de `sync_alteracao` (§4.2).
+5. Toda tabela replicada para dispositivo tem gatilho de `sync_alteracao` (§4.2).
 6. `timestamptz` sempre — nunca `timestamp` sem fuso. Tablet em rua e servidor precisam concordar.
 
 ---
@@ -130,14 +132,43 @@ depender de deploy para isso.
 ## 3. Módulo 1 — Núcleo
 
 ```sql
-create table tenant (
+create table tenant (                  -- a empresa que contratou o BoxFlow
   id                  uuid primary key default gen_random_uuid(),
   razao_social        text not null,
+  nome_exibicao       text,                          -- como aparece na tela; nulo = usa razao_social
+  subdominio          text not null unique
+                      check (subdominio ~ '^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$'),
   cnpj                cnpj_cpf not null unique,
   plano_contratado    text not null default 'BASICO'
                       check (plano_contratado in ('BASICO','PRO','ENTERPRISE')),
   ativo               boolean not null default true,
   criado_em           timestamptz not null default now()
+);
+
+-- Marca branca do contratante. Ver 04-MARCA §3 e ADR-0006.
+create table tenant_marca (
+  tenant_id           uuid primary key references tenant(id),
+
+  -- O contratante informa UMA cor. A escala inteira e derivada pelo sistema.
+  cor_primaria        text not null default '#0B3C49'
+                      check (cor_primaria ~ '^#[0-9A-Fa-f]{6}$'),
+  escala              jsonb not null default '{}'::jsonb,   -- {"50":"#...", ..., "900":"#..."}
+
+  -- Resultado da validacao de contraste, calculado na gravacao e nunca por requisicao.
+  validacao           jsonb not null default '{}'::jsonb,   -- razoes medidas, tom escolhido por papel
+  cor_ajustada        boolean not null default false,       -- true = sistema corrigiu o que foi informado
+  matiz_reservado     boolean not null default false,       -- true = cor cai em faixa de estado (§3.4)
+
+  logotipo_claro_id   uuid,                          -- FK adiada: documento (Active Storage)
+  logotipo_escuro_id  uuid,                          -- FK adiada: documento
+  favicon_id          uuid,                          -- FK adiada: documento; derivado do logotipo
+
+  -- Impressao digital do tema, usada no caminho do CSS servido ao navegador.
+  -- Sem ela, cache intermediario pode entregar o tema de um contratante a outro.
+  hash_tema           text not null default '',
+
+  atualizado_em       timestamptz not null default now(),
+  atualizado_por      uuid references usuario(id)
 );
 
 create table empresa (                 -- empresa/filial dentro do tenant (multi-CNPJ)
@@ -211,7 +242,7 @@ create table usuario_papel (
 create table dispositivo (                           -- tablet, desktop, servidor
   id                  uuid primary key default gen_random_uuid(),
   tenant_id           uuid not null references tenant(id),
-  no_id               uuid not null,                 -- FK adiada: no_sincronizacao
+  versao_contrato     text not null default 'v1',   -- contrato de sincronizacao aceito
   tipo                text not null
                       check (tipo in ('TABLET_FABRICA','TABLET_CAMPO','DESKTOP','SERVIDOR')),
   identificacao       text not null,                 -- "Tablet Coladeira 02", "Tablet Renato"
@@ -235,25 +266,29 @@ create index on dispositivo (tenant_id, ultimo_contato_em desc);
 
 ## 4. Módulo 2 — Sincronização
 
-O módulo que não existia no modelo v0 e sem o qual a arquitetura de dois nós não funciona.
+O módulo que não existia no modelo v0 e sem o qual os clientes offline não funcionam.
 Ver [ADR-0002](adr/0002-propriedade-de-dados-e-sincronizacao.md).
 
-### 4.1 Nós
+### 4.1 Não existe tabela de nós
 
-```sql
-create table no_sincronizacao (
-  id                  uuid primary key default gen_random_uuid(),
-  tenant_id           uuid not null references tenant(id),
-  tipo                text not null check (tipo in ('FABRICA','NUVEM','DISPOSITIVO')),
-  nome                text not null,
-  url_base            text,
-  versao_contrato     text not null default 'v1',
-  versao_app          text,
-  ativo               boolean not null default true,
-  ultimo_handshake_em timestamptz,
-  criado_em           timestamptz not null default now()
-);
-```
+A versão anterior deste modelo tinha uma tabela `no_sincronizacao`, com tipos `FABRICA`, `NUVEM` e
+`DISPOSITIVO`. Ela foi **removida** pelo [ADR-0004](adr/0004-nuvem-pura-sem-servidor-na-fabrica.md): com
+um único nó em nuvem, sobraram apenas duas origens possíveis para qualquer registro, e as duas já eram
+representáveis sem tabela nova:
+
+| Origem do registro | Como é representada |
+|---|---|
+| Criado no servidor | `dispositivo_origem_id` **nulo** |
+| Criado em um dispositivo | `dispositivo_origem_id` aponta para o `dispositivo` |
+
+O que a tabela de nós guardava de útil — versão do contrato, versão do aplicativo, último contato —
+migrou para `dispositivo` (§3), que já existia e já carregava `versao_app` e `ultimo_contato_em`. Menos
+uma tabela, menos uma junção em toda consulta de sincronização, e a pergunta "de onde veio este
+apontamento?" passa a ser respondida com o nome do tablet em vez de com o nome de um nó.
+
+A coluna `proprietario_dispositivo_id` de `COLUNAS_PADRAO` (§2.2) segue a mesma convenção: nula
+significa que o documento pertence ao servidor, e é isso que a transferência de propriedade do
+[ADR-0002](adr/0002-propriedade-de-dados-e-sincronizacao.md) escreve ao submeter um rascunho.
 
 ### 4.2 Log de alterações
 
@@ -266,7 +301,7 @@ create table sync_alteracao (
   registro_id     uuid not null,
   operacao        text not null check (operacao in ('INSERIR','ALTERAR','EXCLUIR')),
   versao_registro bigint not null,
-  no_origem       uuid not null references no_sincronizacao(id),
+  dispositivo_origem_id uuid references dispositivo(id),   -- nulo = criado no servidor
   usuario_id      uuid references usuario(id),
   payload         jsonb not null,                    -- estado completo após a operação
   registrado_em   timestamptz not null default now()
@@ -281,20 +316,17 @@ mais tempo que isso sem sincronizar precisa de **recarga completa do escopo**, n
 
 ```sql
 create table sync_cursor (
-  no_id               uuid not null references no_sincronizacao(id),
-  dispositivo_id      uuid references dispositivo(id),
+  dispositivo_id      uuid not null references dispositivo(id),
   direcao             text not null check (direcao in ('PULL','PUSH')),
   ultima_versao_global bigint not null default 0,
   atualizado_em       timestamptz not null default now(),
-  primary key (no_id, dispositivo_id, direcao)
+  primary key (dispositivo_id, direcao)
 );
 
 create table sync_lote (                             -- rastro de cada troca, para diagnóstico
   id              uuid primary key default gen_random_uuid(),
   tenant_id       uuid not null references tenant(id),
-  no_origem       uuid not null references no_sincronizacao(id),
-  no_destino      uuid not null references no_sincronizacao(id),
-  dispositivo_id  uuid references dispositivo(id),
+  dispositivo_id  uuid not null references dispositivo(id),
   direcao         text not null check (direcao in ('PULL','PUSH')),
   qtd_itens       integer not null default 0,
   qtd_aceitas     integer not null default 0,
@@ -333,8 +365,8 @@ create table sync_conflito (
   registro_id     uuid not null,
   versao_dono     bigint not null,
   versao_rejeitada bigint not null,
-  no_dono         uuid not null references no_sincronizacao(id),
-  no_rejeitado    uuid not null references no_sincronizacao(id),
+  dispositivo_dono      uuid references dispositivo(id),   -- nulo = servidor
+  dispositivo_rejeitado uuid references dispositivo(id),
   payload_dono    jsonb not null,
   payload_rejeitado jsonb not null,                  -- nada é descartado em silêncio
   situacao        text not null default 'ABERTO'
@@ -366,7 +398,6 @@ create table numerador_bloco (
   id              uuid primary key default gen_random_uuid(),
   numerador_id    uuid not null references numerador(id),
   dispositivo_id  uuid references dispositivo(id),
-  no_id           uuid references no_sincronizacao(id),
   valor_inicio    bigint not null,
   valor_fim       bigint not null,
   proximo_valor   bigint not null,
@@ -1134,7 +1165,7 @@ create table revisao_campo (
   usuario_id    uuid references usuario(id),
   usuario_nome  text not null,                             -- desnormalizado: nome no momento do fato
   ocorrido_em   timestamptz not null default now(),
-  no_origem     uuid references no_sincronizacao(id)
+  dispositivo_origem_id uuid references dispositivo(id)   -- nulo = criado no servidor
 );
 
 create index on revisao_campo (entidade, entidade_id, revisao_numero);
@@ -1234,7 +1265,7 @@ create table amostra_evento (                               -- append-only
   observacao    text,
   documento_id  uuid references documento(id),
   dispositivo_id uuid references dispositivo(id),
-  no_origem     uuid not null references no_sincronizacao(id)
+  dispositivo_origem_id uuid not null references dispositivo(id)
 );
 
 create index on amostra_evento (amostra_id, ocorrido_em);
@@ -1277,7 +1308,7 @@ create table assinatura (                                   -- append-only, valo
   hash_anterior     text,                                   -- encadeamento: detecta remoção posterior
   hash_proprio      text not null,
 
-  no_origem         uuid not null references no_sincronizacao(id)
+  dispositivo_origem_id uuid not null references dispositivo(id)
 );
 
 create index on assinatura (entidade, entidade_id);
@@ -1858,7 +1889,7 @@ create table ficha_servico_apontamento (                    -- APPEND-ONLY: sem 
 
   dispositivo_id    uuid not null references dispositivo(id),
   idempotencia_chave uuid not null,
-  no_origem         uuid not null references no_sincronizacao(id),
+  dispositivo_origem_id uuid not null references dispositivo(id),
   unique (tenant_id, idempotencia_chave)
 );
 
@@ -2020,7 +2051,7 @@ create table movimento_estoque (                            -- APPEND-ONLY
   dispositivo_id    uuid references dispositivo(id),
   observacao        text,
   idempotencia_chave uuid not null,
-  no_origem         uuid not null references no_sincronizacao(id),
+  dispositivo_origem_id uuid not null references dispositivo(id),
   unique (tenant_id, idempotencia_chave)
 );
 

@@ -11,6 +11,18 @@ etl/descoberta/saida/
 *-descoberta-*.txt
 *-descoberta-*.json
 
+# Rascunhos rasterizados do logotipo, anteriores à paleta oficial: tratamento neon
+# sobre preto, com halo e artefato de JPEG. Ficam na máquina como referência visual;
+# o que vale está vetorizado em images/marca/.
+images/*.png
+images/*.jpeg
+images/*.jpg
+images/brand/
+
+# Fonte baixada pelo gerador da marca (Inter, OFL) e dependência do rasterizador.
+images/marca/.fonte/
+node_modules/
+
 # Sistema operacional
 Thumbs.db
 ehthumbs.db

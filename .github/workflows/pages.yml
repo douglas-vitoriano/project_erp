@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - 'prototipo/**'
+      - 'docs/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -73,12 +74,20 @@ jobs:
       - name: Conferir a entrada do site
         run: test -f prototipo/index.html
 
+      # Link entre documento apodrece em silêncio: seção renomeada, arquivo
+      # referenciado antes de existir, acento perdido por gravação errada.
+      - name: Conferir os links da documentação
+        run: python3 docs/conferir-links.py
+
       # O repositório é público e a evidência do levantamento tem dado de cliente.
       # Se algum print, PDF ou planilha escapar do .gitignore, a publicação para.
+      # images/marca/ é a única exceção: são os arquivos da marca BoxFlow, gerados
+      # por images/marca/gerar-marca.py, sem nenhum dado de cliente dentro.
       - name: Conferir que nenhuma evidência do legado vazou
         run: |
           vazou=$(git ls-files \
-            | grep -iE '(^Print PcBoot/|\.(jpe?g|png|pdf|xlsx?|mdb|dbf)$)' || true)
+            | grep -iE '(^Print PcBoot/|\.(jpe?g|png|pdf|xlsx?|mdb|dbf)$)' \
+            | grep -vE '^images/marca/' || true)
           if [ -n "$vazou" ]; then
             echo "Arquivo de evidência versionado — publicação abortada:"
             echo "$vazou"

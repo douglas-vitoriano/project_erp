@@ -1,8 +1,14 @@
 # ADR-0001 — Topologia híbrida: servidor local + nó em nuvem
 
-- **Status:** Aceito
+> **SUPERADO** por [ADR-0004 — Nuvem pura](0004-nuvem-pura-sem-servidor-na-fabrica.md) em 28/09/2026.
+> A premissa que sustentava esta decisão — uma implantação, em uma empresa que já havia escolhido servidor
+> local — caiu quando o sistema virou o **BoxFlow, um SaaS multi-contratante**. O texto abaixo fica
+> preservado porque registra o raciocínio original e porque o ADR-0004 responde diretamente ao único
+> argumento desta decisão que continuou válido: a fábrica parar quando a internet cai.
+
+- **Status:** Superado pelo [ADR-0004](0004-nuvem-pura-sem-servidor-na-fabrica.md)
 - **Data:** 27/09/2026
-- **Contexto relacionado:** [00-CENARIO-E-PREMISSAS §3](../00-CENARIO-E-PREMISSAS.md#3-premissas-do-novo-sistema-definidas-pelo-cliente), [01-ARQUITETURA §2](../01-ARQUITETURA.md#2-a-pergunta-central-como-atender-o-vendedor-em-rua)
+- **Contexto relacionado:** [00-CENARIO-E-PREMISSAS §3](../00-CENARIO-E-PREMISSAS.md#3-premissas-do-novo-sistema-definidas-pelo-cliente), [01-ARQUITETURA §2](../01-ARQUITETURA.md#2-a-pergunta-central-manter-a-fábrica-rodando-sem-servidor-local)
 
 ## Contexto
 
@@ -55,7 +61,7 @@ Adotar **dois nós que se sincronizam**, com clientes offline-first:
 - Complexidade real de **sincronização entre nós** — mitigada por [ADR-0002](0002-propriedade-de-dados-e-sincronizacao.md).
 - Custo recorrente de infraestrutura em nuvem.
 - Necessidade de **compatibilidade entre versões** de nós (a nuvem atualiza antes da fábrica), tratada em
-  [01-ARQUITETURA §6.4](../01-ARQUITETURA.md#64-compatibilidade-de-versões-entre-nós).
+  [01-ARQUITETURA §6.4](../01-ARQUITETURA.md#64-compatibilidade-de-versões).
 - Dado de cliente na nuvem exige tratamento de LGPD explícito.
 - **Sem alta disponibilidade no nó local** (decisão consciente): um servidor, com UPS, restore testado e
   fila nos tablets como mitigação. Se a indisponibilidade máxima tolerável cair para menos de algumas

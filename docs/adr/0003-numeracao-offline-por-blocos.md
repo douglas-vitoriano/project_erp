@@ -2,8 +2,9 @@
 
 - **Status:** Aceito
 - **Data:** 27/09/2026
-- **Depende de:** [ADR-0001](0001-topologia-hibrida-local-nuvem.md), [ADR-0002](0002-propriedade-de-dados-e-sincronizacao.md)
-- **Contexto relacionado:** [01-ARQUITETURA §5.3](../01-ARQUITETURA.md#53-numeração-offline), [03-BANCO-DE-DADOS §4.3](../03-BANCO-DE-DADOS.md#43-numeração-por-blocos-offline)
+- **Depende de:** [ADR-0002](0002-propriedade-de-dados-e-sincronizacao.md)
+- **Reforçado por:** [ADR-0004](0004-nuvem-pura-sem-servidor-na-fabrica.md) — sem servidor na fábrica, o bloco pré-alocado deixou de ser recurso do campo e passou a valer para todo documento que pode nascer offline
+- **Contexto relacionado:** [01-ARQUITETURA §5.4](../01-ARQUITETURA.md#54-numeração-offline), [03-BANCO-DE-DADOS §4.3](../03-BANCO-DE-DADOS.md#43-numeração-por-blocos-offline)
 
 ## Contexto
 

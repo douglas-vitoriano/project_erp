@@ -81,14 +81,29 @@ usuários conhecem de cor e citam ao telefone. Não se pode trocar F.T. 92281 po
 
 ## 3. Premissas do novo sistema (definidas pelo cliente)
 
-1. **Servidor local** na fábrica/escritório (mesmo endereço) — decisão tomada.
+1. ~~**Servidor local** na fábrica/escritório (mesmo endereço) — decisão tomada.~~
+   **Revogada em 28/09/2026** (ver §3.0). O sistema roda **inteiramente em nuvem**.
 2. **Tablets na fábrica** rodando o sistema, para transacionar **Fichas de Serviço**: PCP, máquinas
    (corte, colagem, impressão etc.), conferência, expedição. Objetivo: controle **homem-máquina** e
    visibilidade remota de **onde está o pedido**.
 3. **Tablets para vendedores**, com: acesso ao processo da fábrica e à carteira de clientes, e captura de
    **assinatura do cliente** em amostras e propostas de engenharia.
-4. **Vendedores trabalham em rua** e não terão acesso ao servidor local. Necessidade de operação
-   desconectada.
+4. **Vendedores trabalham em rua** e podem ficar horas sem sinal. Necessidade de operação desconectada.
+
+### 3.0 O produto virou SaaS: **BoxFlow** (28/09/2026)
+
+Mudança de natureza, não de detalhe. O sistema deixou de ser uma instalação para uma empresa e passou a
+ser um **produto vendido a várias cartonagens**, chamado **BoxFlow**. Quatro decisões vieram com isso:
+
+| Decisão | Consequência | Onde está |
+|---|---|---|
+| **Nuvem pura**, sem servidor na fábrica | Revoga a premissa 1. Tablet de fábrica passa a ser offline-first de verdade; link redundante vira requisito de implantação | [ADR-0004](adr/0004-nuvem-pura-sem-servidor-na-fabrica.md) |
+| **Ruby on Rails** em vez de C#/.NET, entregue pelo navegador | Stack reescrita; NF-e isolada em serviço .NET para não perder o ecossistema fiscal | [ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md) |
+| **Marca branca**: cada contratante vê o nome e as cores dele | Cor validada na gravação; cores de estado da fábrica **não** são customizáveis | [ADR-0006](adr/0006-marca-branca-por-contratante.md) e [04-MARCA](04-MARCA.md) |
+| Custo de infraestrutura passa a ser **custo do produto**, não do cliente | Escolha de provedor guiada por preço, com domínio HTTPS incluso e sem Registro.br | [05-INFRAESTRUTURA-E-CUSTOS](05-INFRAESTRUTURA-E-CUSTOS.md) |
+
+O que **não** mudou: todo o levantamento do legado (§2), o modelo de conversão (§3.1), o vocabulário de
+fábrica e o motor de fórmulas. O negócio é o mesmo; mudou quem opera o servidor.
 
 ### 3.1 Modelo de fabricação — CONVERSÃO (confirmado em 27/09/2026)
 
@@ -116,15 +131,16 @@ ser comparadas, e não sinônimos.
 
 | # | Restrição | Decisão | Onde está detalhada |
 |---|---|---|---|
-| R1 | A produção não pode parar por queda de internet | Servidor local é autoridade de produção, estoque e expedição; tablets de fábrica operam em LAN | [ADR-0001](adr/0001-topologia-hibrida-local-nuvem.md) |
-| R2 | Vendedor sem acesso ao servidor local | Nó em nuvem como ponto de encontro; **nunca** VPN/acesso remoto ao servidor da fábrica | [ADR-0001](adr/0001-topologia-hibrida-local-nuvem.md) |
-| R3 | Vendedor pode ficar horas sem sinal | Aplicativo offline-first com base local e fila de envio | [01-ARQUITETURA §5](01-ARQUITETURA.md#5-operação-offline) |
-| R4 | Dois nós gravando o mesmo dado gera conflito | Propriedade explícita por agregado + eventos append-only; sem merge automático de estado | [ADR-0002](adr/0002-propriedade-de-dados-e-sincronizacao.md) |
-| R5 | Protocolo de amostra precisa de número impresso, offline, único | Numeração por **blocos pré-alocados** por nó/dispositivo | [ADR-0003](adr/0003-numeracao-offline-por-blocos.md) |
+| R1 | A produção não pode parar por queda de internet | Sem servidor local: o **tablet de fábrica** fixa o turno e enfileira os apontamentos; link redundante com failover 4G é requisito de implantação | [ADR-0004](adr/0004-nuvem-pura-sem-servidor-na-fabrica.md), [01 §5.1](01-ARQUITETURA.md#51-tablet-de-fábrica) |
+| R2 | O escritório **para** quando o link cai | Aceito e declarado: escritório tolera esperar, máquina não. Formulário preenchido é preservado no navegador em vez de perdido | [01 §5.3](01-ARQUITETURA.md#53-escritório-e-painel-de-galpão) |
+| R3 | Vendedor pode ficar horas sem sinal | Aplicativo offline-first com base local relacional e fila de envio | [01 §5.2](01-ARQUITETURA.md#52-tablet-do-vendedor) |
+| R4 | Dispositivo e servidor gravando o mesmo dado gera conflito | Propriedade explícita por agregado + eventos append-only; sem merge automático de estado | [ADR-0002](adr/0002-propriedade-de-dados-e-sincronizacao.md) |
+| R5 | Protocolo de amostra precisa de número impresso, offline, único | Numeração por **blocos pré-alocados** por dispositivo — agora obrigatória também na fábrica, que perdeu a autoridade local | [ADR-0003](adr/0003-numeracao-offline-por-blocos.md) |
 | R6 | Usuários conhecem as numerações atuais de cor | UUID como chave interna + **código humano** preservado do legado (`codigo_legado`) | [03-BANCO-DE-DADOS §2](03-BANCO-DE-DADOS.md#2-convenções) |
-| R7 | NF-e exige internet e certificado | Emissão no nó local (guarda o certificado A1) com contingência | [01-ARQUITETURA §7](01-ARQUITETURA.md#7-fiscal-e-contingência) |
-| R8 | Dados de cliente na nuvem (LGPD) | Escopo mínimo replicado, cifrado em repouso, trilha de acesso, retenção definida | [01-ARQUITETURA §8](01-ARQUITETURA.md#8-segurança-e-lgpd) |
-| R9 | Motor de fórmulas é o núcleo técnico e não pode errar | Reimplementado com testes de regressão contra as ~94k F.T. do legado | [02-ENGENHARIA §4](02-ENGENHARIA.md#4-motor-de-fórmulas-de-caixa) |
+| R7 | NF-e exige internet e certificado | Serviço .NET isolado; **certificado A1 cifrado por contratante na nuvem**, com cláusula contratual, porque deixou de morar na fábrica | [ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md), [01 §8](01-ARQUITETURA.md#8-fiscal-e-contingência) |
+| R8 | Dado de todos os contratantes em um banco (LGPD) | `tenant_id` com RLS no Postgres como rede de segurança, teste automatizado de vazamento por recurso, `tenant_id` em todo log | [01 §7](01-ARQUITETURA.md#7-isolamento-entre-contratantes), [01 §9](01-ARQUITETURA.md#9-segurança-e-lgpd) |
+| R9 | Motor de fórmulas é o núcleo técnico e não pode errar | Gem Ruby pura, **sem `eval`**, com regressão contra as ~94k F.T. do legado | [02-ENGENHARIA §4](02-ENGENHARIA.md#4-motor-de-fórmulas-de-caixa) |
+| R10 | Cliente escolhe as cores, mas o operador aprende a cor | Uma cor de entrada, escala derivada e validada; cores de estado travadas; painel de galpão ignora o tema | [ADR-0006](adr/0006-marca-branca-por-contratante.md), [04-MARCA §3](04-MARCA.md) |
 
 ## 5. Lacunas do modelo de dados versão 0
 
@@ -196,6 +212,7 @@ Confirmar antes de assumir: `etl/descoberta/descobrir-banco-pcboot.ps1`.
 
 ## Histórico de revisões
 
-| Data | Autor | Mudança |
-|---|---|---|
-| 27/09/2026 | — | Versão inicial, consolidando o levantamento do legado e as premissas de fábrica/campo |
+| Data | Mudança |
+|---|---|
+| 27/09/2026 | Versão inicial, consolidando o levantamento do legado e as premissas de fábrica/campo |
+| 28/09/2026 | Produto virou SaaS **BoxFlow** (§3.0): premissa 1 (servidor local) revogada, restrições R1–R9 reescritas e R10 acrescentada |

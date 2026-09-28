@@ -2,68 +2,100 @@
 
 ## 1. Stack
 
+Escolhida em [ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md), que substitui a stack original (.NET 8 +
+React). O contexto que a define é o [ADR-0004](adr/0004-nuvem-pura-sem-servidor-na-fabrica.md): um nó só,
+na nuvem, entregue pelo navegador.
+
 | Camada | Escolha | Justificativa |
 |---|---|---|
-| Banco | **PostgreSQL 16+** | `jsonb`, tipos de intervalo, exclusão por restrição, particionamento, extensões; roda igual no nó local e na nuvem |
-| Backend | **.NET 8 / ASP.NET Core** + EF Core | Aderente ao modelo v0 (enums, uuid, jsonb); ecossistema sólido de NF-e; equipe brasileira encontra profissional |
-| Frontend | **React + TypeScript**, PWA instalável | Um só código para escritório, tablet de fábrica e tablet de vendedor; instala sem loja de aplicativos |
-| Base local do cliente | **SQLite (WASM/OPFS)** no tablet do vendedor, **IndexedDB** na fila do tablet de fábrica | O vendedor precisa consultar relacional offline; a fábrica precisa apenas de fila |
-| Anexos | **MinIO** (local) + bucket S3 (nuvem) | Mesma API nos dois nós |
-| Empacotamento | **Docker Compose** | Operação simples para TI pequena |
-| Identidade | **OIDC** (Keycloak self-hosted na nuvem) | Token validável offline no nó local via JWKS |
-| Relatórios | Renderização própria em PDF (QuestPDF) + export XLSX real (ClosedXML) | Substitui o "xls que é HTML" do legado |
-| Migrações | **DbUp** ou EF Core Migrations, scripts versionados em SQL | Ver §3.3 |
+| Banco | **PostgreSQL 16+** | `jsonb`, tipos de intervalo, `EXCLUDE USING gist`, particionamento, RLS. Nenhuma dessas é opcional no modelo deste sistema |
+| Aplicação | **Ruby on Rails 8** (Ruby 3.3+), Puma | Velocidade de um time pequeno sobre CRUD denso, que é a maior parte deste ERP |
+| Telas de escritório e painel | **Hotwire**: Turbo Drive, Frames, Streams + Stimulus | Renderizado no servidor; entrega telas densas de formulário com uma fração do código de uma SPA |
+| Fila, cache e WebSocket | **Solid Queue, Solid Cache, Solid Cable** — tudo no Postgres | Sem Redis. Um serviço a menos para operar e pagar |
+| Tablet de máquina | Cliente próprio: **Stimulus + IndexedDB + service worker**, falando JSON idempotente | Precisa apontar durante queda de link ([01-ARQUITETURA §5.1](01-ARQUITETURA.md)). São poucas telas e simples |
+| Tablet do vendedor | Cliente próprio com **SQLite (WASM/OPFS)** e fila de envio | Precisa de consulta relacional offline e de escrita offline com assinatura |
+| Motor de fórmulas | **Gem Ruby pura**, sem dependência de Rails, com parser próprio | Isolada para rodar a regressão contra as 94 mil F.T. fora da aplicação (§4) |
+| Anexos | **Active Storage** sobre backend S3-compatível | Fim do caminho de rede gravado no registro |
+| NF-e | **Serviço .NET isolado**, por HTTP com chave de idempotência | O ecossistema fiscal maduro está em .NET; manter só isso lá custa um contêiner ([ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md)) |
+| Autorização | **Pundit**, política por módulo e operação | Regra no servidor, nunca só na interface |
+| Relatórios | PDF renderizado no servidor + **XLSX real** | Substitui o "xls que é HTML" do legado |
+| Migrações | Rails Migrations com **`schema_format = :sql`** | Obrigatório: `schema.rb` não representa `EXCLUDE`, RLS nem domínio com `CHECK` (§3.3) |
+| Implantação | **Kamal 2** | Roda em qualquer VPS ou provedor de contêiner, sem amarra a fornecedor ([05-INFRAESTRUTURA-E-CUSTOS](05-INFRAESTRUTURA-E-CUSTOS.md)) |
 
-Sobre PWA versus aplicativo nativo: PWA cobre câmera, leitura de código de barras/QR, assinatura em
-canvas e armazenamento offline. Se aparecer necessidade de **modo quiosque** real no tablet de fábrica ou
-de leitor físico de código de barras, envolve-se o mesmo código em **Capacitor** e publica-se como APK
-gerenciado — decisão adiável sem retrabalho de tela.
+### 1.1 A fronteira entre servidor e cliente
+
+Hotwire renderiza no servidor; offline-first renderiza no cliente. As duas coisas não se misturam bem, e
+por isso a fronteira é declarada em vez de descoberta durante a obra:
+
+| Cliente | Renderização | Funciona sem rede? |
+|---|---|---|
+| Escritório | Servidor (Hotwire) | Não — e não precisa |
+| Painel de galpão | Servidor, empurrado por Turbo Stream | Não — exibe a hora do último dado |
+| Tablet de máquina | Cliente, com fila local | **Sim** |
+| Tablet do vendedor | Cliente, com banco local | **Sim** |
+
+O Rails é o mesmo nos quatro: mesmas regras de domínio, mesmos casos de uso. Muda só o `respond_to`.
+
+Sobre PWA versus aplicativo nativo: PWA cobre câmera, leitura de QR, assinatura em canvas e armazenamento
+offline. Se aparecer necessidade de **modo quiosque** real no tablet de fábrica ou de leitor físico de
+código de barras, envolve-se o mesmo código em **Capacitor** e publica-se como APK gerenciado — decisão
+adiável sem retrabalho de tela.
 
 ## 2. Estrutura do repositório
 
 ```
 /
 ├─ docs/                          # esta documentação
-├─ src/
-│  ├─ Erp.Dominio/                # entidades, regras, invariantes (sem dependência de infra)
-│  │  ├─ Nucleo/                  # tenant, empresa, usuario, permissao
-│  │  ├─ Cadastro/                # cliente, fornecedor, representante, transportadora
-│  │  ├─ Engenharia/              # ficha_tecnica, estilo, formula, ferramental, documento
-│  │  ├─ Amostra/                 # requisicao, protocolo, assinatura, projeto
-│  │  ├─ Comercial/               # orcamento, pedido, entrega programada, kanban
-│  │  ├─ Suprimento/              # pedido de compra, recebimento
-│  │  ├─ Pcp/                     # ordem de fabricacao, roteiro, carga-maquina
-│  │  ├─ Producao/                # ficha de servico, apontamento, parada, OEE
-│  │  ├─ Estoque/                 # item, saldo, movimento, lote, inventario
-│  │  ├─ Expedicao/               # conferencia, volume, carga, romaneio
-│  │  ├─ Fiscal/                  # nota fiscal, tributacao, series
-│  │  └─ Financeiro/              # titulos, baixas, conciliacao
-│  ├─ Erp.Aplicacao/              # casos de uso, validações, autorização
-│  ├─ Erp.Infra/                  # EF Core, repositórios, storage, integrações
-│  ├─ Erp.Calculo/                # MOTOR DE FÓRMULAS DE CAIXA (isolado e testável)
-│  ├─ Erp.Sincronizacao/          # change log, cursores, lotes, conflitos, numeradores
-│  ├─ Erp.Api/                    # ASP.NET Core (host do nó local e do nó nuvem)
-│  ├─ Erp.AgenteSync/             # serviço que roda no nó local e conversa com a nuvem
-│  ├─ Erp.Nfe/                    # emissão, eventos, contingência
-│  └─ Erp.Web/                    # PWA React
-│     ├─ app-escritorio/
-│     ├─ app-fabrica/             # UI de toque grosso, alto contraste, 3 toques
-│     └─ app-campo/               # offline-first, sincronização, assinatura
+├─ app/
+│  ├─ models/                     # Active Record + invariantes de domínio
+│  │  ├─ nucleo/                  # tenant, tenant_marca, empresa, usuario, permissao
+│  │  ├─ cadastro/                # cliente, fornecedor, representante, transportadora
+│  │  ├─ engenharia/              # ficha_tecnica, estilo, formula, ferramental, documento
+│  │  ├─ amostra/                 # requisicao, protocolo, assinatura, projeto
+│  │  ├─ comercial/               # orcamento, pedido, entrega programada, kanban
+│  │  ├─ suprimento/              # pedido de compra, recebimento
+│  │  ├─ pcp/                     # ordem de fabricacao, roteiro, carga-maquina
+│  │  ├─ producao/                # ficha de servico, apontamento, parada, OEE
+│  │  ├─ estoque/                 # item, saldo, movimento, lote, inventario
+│  │  ├─ expedicao/               # conferencia, volume, carga, romaneio
+│  │  ├─ fiscal/                  # nota fiscal, tributacao, series
+│  │  └─ financeiro/              # titulos, baixas, conciliacao
+│  ├─ operacoes/                  # casos de uso; um objeto por intenção de negócio
+│  ├─ policies/                   # Pundit: módulo + operação + carteira do representante
+│  ├─ controllers/
+│  │  ├─ escritorio/              # responde HTML (Hotwire)
+│  │  └─ api/v1/                  # responde JSON para os dois clientes offline
+│  ├─ components/                 # ViewComponent
+│  ├─ views/
+│  ├─ jobs/                       # Solid Queue
+│  └─ javascript/
+│     ├─ escritorio/              # Stimulus de apoio ao Hotwire
+│     ├─ fabrica/                 # cliente offline: fila IndexedDB, service worker, 3 toques
+│     └─ campo/                   # cliente offline: SQLite WASM, sincronização, assinatura
+├─ lib/
+│  ├─ boxflow_calculo/            # MOTOR DE FÓRMULAS (gem pura, sem Rails)
+│  └─ boxflow_sincronizacao/      # change log, cursores, lotes, conflitos, numeradores
 ├─ db/
-│  ├─ migracoes/                  # 0001_nucleo.sql, 0002_cadastro.sql, ...
+│  ├─ migrate/                    # migrações Rails; DDL sensível via execute()
+│  ├─ structure.sql               # esquema real (schema_format = :sql)
 │  └─ seeds/                      # estilos FEFCO, qualidades, motivos de parada, NCM
+├─ servicos/
+│  └─ nfe/                        # serviço .NET isolado: XML, assinatura, contingência
 ├─ etl/                           # migração do PcBoot
+│  ├─ descoberta/                 # identifica o banco do legado (somente leitura)
 │  ├─ extracao/
 │  ├─ transformacao/
 │  └─ conferencia/                # relatórios de divergência legado x novo
-└─ infra/
-   ├─ compose.local.yml
-   ├─ compose.nuvem.yml
-   └─ observabilidade/
+├─ images/marca/                  # marca BoxFlow, gerada por parâmetro (ver 04-MARCA)
+├─ prototipo/                     # protótipo navegável de interface
+└─ config/
+   ├─ deploy.yml                  # Kamal
+   └─ ...
 ```
 
-Regra de dependência: `Dominio` não conhece ninguém. `Erp.Calculo` também não — é biblioteca pura, e é
-por isso que ela é testável contra as 94 mil F.T. do legado.
+Regra de dependência que importa: **`lib/boxflow_calculo` não conhece Rails.** É biblioteca pura, e é
+exatamente por isso que ela é executável contra as 94 mil F.T. do legado por um script, fora da
+aplicação (§4.4).
 
 ## 3. Padrões de desenvolvimento
 
@@ -85,6 +117,10 @@ Invariantes que moram no domínio, não em trigger nem em tela:
 
 ### 3.2 API
 
+A aplicação tem **duas saídas**, e a distinção é deliberada: o escritório consome HTML, os dois clientes
+offline consomem JSON. Os dois caminhos chamam o mesmo objeto de `app/operacoes/` — a regra de negócio não
+é duplicada.
+
 - REST com recursos em português, alinhados ao vocabulário do negócio
   (`/fichas-tecnicas`, `/ordens-fabricacao/{id}/fichas-servico`).
 - **Idempotência obrigatória** em todo POST que pode vir de cliente offline: cabeçalho
@@ -96,9 +132,15 @@ Invariantes que moram no domínio, não em trigger nem em tela:
 
 ### 3.3 Migrações de banco
 
-- Um arquivo SQL numerado por mudança, imutável após merge. Correção é migração nova.
+**`config.active_record.schema_format = :sql`.** Não é preferência: o modelo depende de
+`EXCLUDE USING gist` com `int8range` ([ADR-0003](adr/0003-numeracao-offline-por-blocos.md)), de políticas
+de RLS, de domínios com `CHECK` e de índices parciais. O `schema.rb` não sabe representar nada disso, e
+um esquema de teste gerado a partir dele seria mais permissivo que a produção — o pior tipo de diferença
+entre ambientes. DDL desses recursos é escrito com `execute` e SQL explícito na migração.
+
+- Uma migração por mudança, imutável após merge. Correção é migração nova.
 - Toda migração é **aditiva e compatível com a versão anterior** (ver
-  [01-ARQUITETURA §6.4](01-ARQUITETURA.md#64-compatibilidade-de-versões-entre-nós)): coluna nova anulável
+  [01-ARQUITETURA §6.4](01-ARQUITETURA.md#64-compatibilidade-de-versões)): coluna nova anulável
   ou com default; renomeação vira `adiciona nova + copia + deprecia`; remoção só após duas versões.
 - Migração que toca tabela replicada declara explicitamente o impacto na sincronização no cabeçalho do
   arquivo.
@@ -107,14 +149,47 @@ Invariantes que moram no domínio, não em trigger nem em tela:
 
 ### 3.4 Testes
 
-| Tipo | Escopo | Meta |
-|---|---|---|
-| Unidade | Regras de domínio, motor de fórmulas | Cobertura alta em `Erp.Calculo` e `Erp.Dominio` |
-| Regressão de cálculo | 94k F.T. do legado reprocessadas | ver §4.4 — é o teste mais importante do projeto |
-| Integração | API + Postgres real (Testcontainers) | Fluxos: orçamento→pedido→O.F.→FS→NF-e |
-| Sincronização | Dois nós + dois dispositivos simulados, com partição de rede | Cenários de §6.5 |
-| Interface | Fluxos críticos de fábrica e campo (Playwright) | Apontamento, assinatura, sincronização |
-| Carga | Listagens sobre 20 anos de histórico; 30 tablets apontando | Latência p95 < 500 ms em LAN |
+| Tipo | Escopo | Ferramenta | Meta |
+|---|---|---|---|
+| Unidade | Regras de domínio, motor de fórmulas | RSpec | Cobertura alta em `boxflow_calculo` e nos modelos |
+| Regressão de cálculo | 94k F.T. do legado reprocessadas | script sobre a gem pura | ver §4.4 — é o teste mais importante do projeto |
+| Integração | Rota + Postgres real | RSpec + banco de teste com `structure.sql` | Fluxos: orçamento→pedido→O.F.→FS→NF-e |
+| **Vazamento entre contratantes** | Todo recurso, autenticado como A pedindo id de B | RSpec | Tem que devolver **404**, não 403 ([01-ARQUITETURA §7](01-ARQUITETURA.md)) |
+| Sincronização | Dois dispositivos simulados, com partição de rede | RSpec + cliente simulado | Cenários de §6.5 |
+| Interface | Fluxos críticos de fábrica e campo | Playwright | Apontamento, assinatura, sincronização, **modo offline forçado** |
+| Carga | Listagens sobre 20 anos de histórico; 30 tablets apontando | k6 ou similar | Orçamento de latência de [01-ARQUITETURA §12](01-ARQUITETURA.md) |
+
+Dois testes desta tabela não existiam na versão anterior e são consequência direta da nuvem pura: o de
+**vazamento entre contratantes**, porque agora todos os clientes dividem um banco, e o de **modo offline
+forçado** no tablet de fábrica, porque não existe mais servidor local para absorver a queda.
+
+### 3.5 Multi-contratante no Active Record
+
+Todo request abre a conexão com `SET LOCAL app.tenant_id` dentro de um `around_action`, e as políticas de
+RLS do Postgres filtram a partir daí. O escopo no Active Record continua existindo — é o que faz a consulta
+ser eficiente — mas **a RLS é a rede de segurança**: escopo esquecido é o erro mais fácil de cometer em
+SaaS multi-tenant, e a única forma de ele não virar vazamento é o banco recusar a linha.
+
+Duas consequências práticas: `Solid Queue` precisa carregar o `tenant_id` no payload do job e reabrir o
+contexto ao executar, porque job roda fora do request; e migração que roda DDL tem que ser executada com
+papel que **contorna** a RLS, senão ela não vê as linhas que precisa alterar.
+
+### 3.6 Tema do contratante
+
+Implementação do contrato definido em [04-MARCA §3](04-MARCA.md) e
+[ADR-0006](adr/0006-marca-branca-por-contratante.md).
+
+- A cor primária informada pelo contratante é validada **na gravação**, e a escala derivada (50 a 900) é
+  persistida em `tenant_marca.escala` junto do resultado da validação. Não se recalcula por requisição.
+- O tema chega ao navegador como **variável CSS** em uma folha por contratante, servida em rota própria
+  com impressão digital no caminho (`/tema/<tenant>-<hash>.css`) e cache longo. Impressão digital no
+  caminho é o que evita tema de um contratante ser servido a outro por cache intermediário.
+- Para não piscar na carga, as variáveis essenciais — cor de fundo da barra e cor primária — são inseridas
+  também em `<style>` no `<head>` do layout, que já é renderizado no servidor.
+- Logotipo enviado passa por verificação de tipo real, limite de tamanho e **sanitização de SVG**. SVG
+  aceita `<script>`; logotipo de terceiro sem sanitizar é XSS com a nossa permissão.
+- As cores de estado ficam em folha separada, que o tema **não** pode sobrescrever — nem por ordem de
+  carga, nem por especificidade. Elas são declaradas depois e com escopo próprio.
 
 ## 4. Motor de fórmulas de caixa
 
@@ -147,9 +222,15 @@ texto da fórmula ──► léxico ──► parser (precedência) ──► AS
 - Gramática mínima: números decimais, as 7 variáveis, `+ - * /`, parênteses. Sem função, sem condicional.
   Manter deliberadamente pobre: fórmula de caixa não precisa de linguagem, e linguagem embutida em ERP
   vira dívida eterna.
-- **AST compilada e cacheada** por estilo/versão — recalcular 94 mil F.T. exige isso.
-- Aritmética em `decimal` com arredondamento explícito e documentado por slot. Nunca `double`:
+- **Parser próprio, por descida recursiva. Nunca `eval`.** A fórmula é dado de cliente, gravado no banco
+  e editável pela engenharia. `eval` sobre dado de cliente em processo multi-contratante é execução
+  remota de código com acesso ao banco de todos os contratantes. Este é o requisito de segurança mais
+  importante do motor, acima de qualquer consideração de desempenho.
+- **AST compilada e cacheada** por estilo e versão — recalcular 94 mil F.T. exige isso.
+- Aritmética em `BigDecimal` com arredondamento explícito e documentado por slot. Nunca `Float`:
   medida de caixa em ponto flutuante binário produz 122,99999 e briga na fábrica.
+- A gem **não depende de Rails** e recebe as sete variáveis como argumento simples. É isso que permite
+  rodar a regressão do §4.4 por script, sobre um dump do legado, sem subir a aplicação.
 - Fórmula é **versionada**: alterar a fórmula de um estilo cria versão nova com vigência, e as F.T.
   existentes continuam apontando para a versão com que foram calculadas. Sem isso, "corrigir" um estilo
   reescreveria retroativamente 20 anos de ficha.
@@ -257,13 +338,16 @@ duas máquinas é proporcional ao tempo declarado.
 
 ### 6.1 Componentes
 
+Só existe o eixo **dispositivo ↔ nuvem**. O eixo entre nós, que era a parte mais difícil do desenho
+anterior, desapareceu com o [ADR-0004](adr/0004-nuvem-pura-sem-servidor-na-fabrica.md).
+
 | Componente | Onde roda | Função |
 |---|---|---|
-| `sync_alteracao` + gatilhos | Postgres (ambos os nós) | Registrar toda mudança com sequência global |
-| `Erp.AgenteSync` | Nó local | Puxar e empurrar contra a nuvem, em ciclo, com retentativa exponencial |
-| Endpoints `/sync/v1` | Nó nuvem e nó local | `pull`, `push`, `handshake`, `numerador/bloco`, `anexo` |
-| Cliente de sincronização | PWA do vendedor | Aplicar pull no SQLite, drenar a fila de push |
-| Fila de eventos | PWA de fábrica | Persistir apontamento e reenviar |
+| `sync_alteracao` + gatilhos | PostgreSQL | Registrar toda mudança com sequência global monotônica |
+| Rotas `/sync/v1` | Rails | `pull`, `push`, `handshake`, `numerador/bloco`, `anexo` |
+| `lib/boxflow_sincronizacao` | Rails | Cursores, lotes, idempotência, conflito, blocos de numeração |
+| Cliente de sincronização | PWA do vendedor | Aplicar pull no SQLite local, drenar a fila de push |
+| Fila de eventos | PWA de fábrica | Persistir apontamento em IndexedDB e reenviar |
 
 ### 6.2 Fluxo de pull
 
@@ -305,11 +389,15 @@ dado corrompido silenciosamente em sistemas distribuídos.
 3. Tablet do vendedor esgota o bloco de numeração offline.
 4. Tablet de fábrica aponta 200 eventos com Wi-Fi caído e reenvia tudo.
 5. Reenvio duplicado do mesmo lote (timeout na resposta) — não pode gerar apontamento em dobro.
-6. Fábrica fica 8 h sem internet; nuvem acumula; drenagem sem perda nem ordem invertida.
-7. Nuvem em versão nova, fábrica em versão anterior — handshake e compatibilidade.
+6. **Fábrica fica 8 h sem link**: turno inteiro apontado em fila local, drenagem sem perda nem ordem
+   invertida, e escritório bloqueando envio em vez de aceitar e perder.
+7. **PWA de fábrica em versão antiga** (semanas sem recarregar) contra servidor novo — handshake,
+   bloqueio com mensagem clara, e atualização que **só** ocorre depois de a fila drenar.
 8. Tablet perdido e revogado — bloqueio de push e apagamento da base local no próximo contato.
 9. Relógio do tablet errado em 2 h — ordenação por sequência do servidor, não por hora do cliente.
 10. Anexo grande (desenho) sincronizando em 4G lento sem travar a fila de dados.
+11. **Token do posto expira durante a queda de link** — o tablet continua coletando em fila, mas não
+    abre tela nova ([01-ARQUITETURA §9.1](01-ARQUITETURA.md)).
 
 O item 9 merece destaque: **nunca ordenar por horário do dispositivo**. A ordem é sempre a sequência
 atribuída pelo servidor; o horário do cliente é gravado como informação, não como critério.
@@ -352,7 +440,7 @@ Sequência pensada para que cada fase entregue valor sozinha e reduza risco da s
 
 | Fase | Entrega | Por que nesta ordem |
 |---|---|---|
-| **0** | Infra dos dois nós, identidade, esqueleto de sincronização, migração de ensaio | Nada funciona antes disso, e a migração de ensaio revela cedo o tamanho do problema de dados |
+| **0** | Infra em nuvem, contratante e tema, identidade, esqueleto de sincronização, migração de ensaio | Nada funciona antes disso, e a migração de ensaio revela cedo o tamanho do problema de dados. `tenant` e `tenant_marca` entram na fase 0 porque multi-contratante retrofitado é reescrita, não ajuste |
 | **1** | Engenharia: F.T., estilos, fórmulas, ferramental, documentos + **regressão contra 94k F.T.** | É o núcleo e o maior risco técnico. Provar aqui autoriza o resto |
 | **2** | Comercial: orçamento, pedido, programação de entregas, kanban | Alimenta a produção; sem pedido não há O.F. |
 | **3** | **Amostras + tablet do vendedor com assinatura** | Maior dor atual (58% da fila aguardando) e o pedido explícito do cliente |
@@ -366,8 +454,9 @@ operador. Recomenda-se **piloto em uma única máquina** antes de escalar para t
 
 ## 9. Observabilidade e qualidade em produção
 
-- Log estruturado com `tenant_id`, `no_id`, `dispositivo_id`, `usuario_id`, `correlacao_id` propagado
-  entre nós — requisito para investigar "meu apontamento não chegou".
+- Log estruturado com `tenant_id`, `dispositivo_id`, `usuario_id` e `correlacao_id` — requisito para
+  investigar "meu apontamento não chegou" e, mais ainda, para responder a um incidente de vazamento
+  entre contratantes.
 - Métrica de negócio no mesmo painel da métrica técnica: amostras aguardando por faixa de idade,
   FS paradas sem motivo, pedidos sem O.F., títulos vencidos.
 - Alertas com dono definido e ação esperada. Alerta sem ação vira ruído e depois vira desligado.
@@ -379,13 +468,17 @@ operador. Recomenda-se **piloto em uma única máquina** antes de escalar para t
 | E1 | Banco do PcBoot e disponibilidade do schema | Define esforço de ETL (ver Q2 do doc 00). Script de descoberta disponível em `etl/descoberta/` |
 | ~~E2~~ | ~~Onduladeira própria ou compra de chapa~~ | **Respondida:** compra chapa pronta e converte. Roteiro sem ondulação; item crítico é chapa por qualidade e formato (ver [00 §3.1](00-CENARIO-E-PREMISSAS.md#31-modelo-de-fabricação--conversão-confirmado-em-27092026)) |
 | E3 | Tablet Android gerenciado ou iPad | Afeta modo quiosque, MDM e leitura de código de barras |
-| E4 | Provedor de NF-e: biblioteca própria ou serviço | Prazo e custo da fase 6 |
+| ~~E4~~ | ~~Provedor de NF-e: biblioteca própria ou serviço~~ | **Respondida:** serviço **.NET isolado** mantido pelo projeto, acessado por HTTP ([ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md)) |
 | E5 | Assinatura precisa de ICP-Brasil | Define se entra assinatura qualificada (Q7) |
 | E6 | Existe balança/leitor/PLC a integrar nas máquinas | Apontamento pode ser parcialmente automático em vez de manual |
 | E7 | Chapa vem no formato exato ou há refile interno | Define se existe operação `REFILE` no roteiro padrão e como se contabiliza a sobra (Q9) |
+| **E8** | Custódia do certificado A1 na nuvem: cofre do provedor ou serviço dedicado | Define cláusula contratual e o desenho do serviço de NF-e ([01-ARQUITETURA §8](01-ARQUITETURA.md)) |
+| **E9** | Migração do legado é por contratante ou só para o primeiro | O ETL do PcBoot serve um cliente; o segundo contratante pode vir de outro sistema |
+| **E10** | Planos comerciais: o que limita — usuários, dispositivos, volume de anexo | Define o que precisa ser medido por contratante desde a fase 0 |
 
 ## Histórico de revisões
 
-| Data | Autor | Mudança |
-|---|---|---|
-| 27/09/2026 | — | Versão inicial: stack, padrões, motor de fórmulas, fichas de serviço, sincronização, migração, fases |
+| Data | Mudança |
+|---|---|
+| 27/09/2026 | Versão inicial: stack, padrões, motor de fórmulas, fichas de serviço, sincronização, migração, fases |
+| 28/09/2026 | Stack trocada para **Ruby on Rails** ([ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md)): §1 e §2 reescritos, fronteira servidor/cliente declarada (§1.1), `schema_format = :sql` (§3.3), multi-contratante com RLS (§3.5), tema do contratante (§3.6), proibição explícita de `eval` no motor (§4.2), sincronização reduzida a um eixo (§6.1), cenários de teste de nuvem pura (§6.5), E4 respondida, E8–E10 abertas |
