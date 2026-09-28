@@ -73,7 +73,8 @@ adiável sem retrabalho de tela.
 │     ├─ fabrica/                 # cliente offline: fila IndexedDB, service worker, 3 toques
 │     └─ campo/                   # cliente offline: SQLite WASM, sincronização, assinatura
 ├─ lib/
-│  ├─ boxflow_calculo/            # MOTOR DE FÓRMULAS (gem pura, sem Rails)
+│  ├─ boxflow_calculo/            # MOTOR DE FÓRMULAS + regras de velocidade (gem pura, sem Rails)
+│  ├─ boxflow_sequenciador/       # carga-máquina: propõe sequência (gem pura, sem Rails)
 │  └─ boxflow_sincronizacao/      # change log, cursores, lotes, conflitos, numeradores
 ├─ db/
 │  ├─ migrate/                    # migrações Rails; DDL sensível via execute()
@@ -95,7 +96,8 @@ adiável sem retrabalho de tela.
 
 Regra de dependência que importa: **`lib/boxflow_calculo` não conhece Rails.** É biblioteca pura, e é
 exatamente por isso que ela é executável contra as 94 mil F.T. do legado por um script, fora da
-aplicação (§4.4).
+aplicação (§4.4). `boxflow_sequenciador` segue a mesma regra, pelo mesmo tipo de motivo: proposta gravada
+há três semanas precisa poder ser reproduzida fora da aplicação, a partir do registro (§5.6).
 
 ## 3. Padrões de desenvolvimento
 
@@ -268,6 +270,49 @@ Antes de qualquer tela nova, o motor tem que provar que reproduz o passado:
 A meta de aceite é divergência explicada em 100% dos casos — não "quase igual". Este é o critério que
 autoriza desligar o PcBoot.
 
+### 4.5 Motor de regras de velocidade e de setup
+
+Mora na mesma gem `lib/boxflow_calculo`, por dois motivos: reusa a aritmética decimal já testada e, como a
+gem não conhece Rails, a regra pode ser avaliada em script sobre um dump do legado — que é exatamente o
+que a calibração de [06 §4.6](06-PARIDADE-COMPETITIVA.md#46-calibração-de-onde-saem-os-números) precisa
+fazer antes de haver aplicação no ar.
+
+**Vocabulário fechado, pela mesma razão do §4.1.** Atributo fora da lista de `maquina_regra.atributo` é
+recusado, com mensagem dizendo qual. A tentação de aceitar "qualquer campo do banco", como o produto de
+referência faz, é a mesma tentação do `eval` no §4.2, com o mesmo agravante: regra de contratante
+interpretada em tempo de execução num processo que atende todos os contratantes. Recusado pelo mesmo
+motivo, e a lista de atributos é ampliada por *deploy*, não por cadastro.
+
+**Avaliação sem estado e sem ordem.** A assinatura é `(maquina, caracteristicas_do_trabalho, finalidade) →
+resultado`, sendo `caracteristicas_do_trabalho` um mapa de atributo para valor, extraído da F.T. e do
+ferramental. O resultado é uma estrutura, não um número:
+
+```
+{ velocidade_hora:, setup_min:, refugo_setup_folhas:, proibido:, penalidade:, regras_aplicadas: [...] }
+```
+
+`regras_aplicadas` não é diagnóstico opcional — é o que a tela mostra quando alguém pergunta por que a
+velocidade caiu, e é o que o sequenciador põe no motivo da posição. Uma implementação que devolva só o
+número obriga a recalcular para explicar, e explicação recalculada divergindo do número original é um bug
+que aparece em reunião.
+
+**Composição comutativa**, conforme [03 §10.2](03-BANCO-DE-DADOS.md#102-regras-de-velocidade-e-de-setup):
+mínimo dos tetos, produto dos fatores, soma dos adicionais, disjunção do `PROIBIR`, soma das penalidades. O
+teste que garante isso é direto e vale a pena escrever primeiro: **avaliar o mesmo conjunto de regras em
+ordens embaralhadas tem de dar resultado idêntico**, para qualquer permutação.
+
+Testes obrigatórios do motor de regras:
+
+| Teste | O que prova |
+|---|---|
+| Permutação de regras | Composição independente de ordem (propriedade, não exemplo) |
+| Sem regra que casa | Devolve `capacidade_hora` intacta, nunca zero nem nulo |
+| `PROIBIR` presente | Bloqueia mesmo se outra regra der velocidade ótima |
+| `VELOCIDADE_FATOR` fora de `(0, 1]` | Recusado na gravação, não na avaliação |
+| Atributo desconhecido | Recusado, com o nome do atributo na mensagem |
+| Finalidade `CUSTEIO` contra `ROTEIRIZACAO` | Mesma entrada devolve números diferentes quando as regras diferem |
+| Vigência expirada | Regra com `vigencia_fim` no passado não participa |
+
 ## 5. Fichas de Serviço e controle homem-máquina
 
 ### 5.1 Encadeamento
@@ -333,6 +378,71 @@ duas máquinas é proporcional ao tempo declarado.
 - Sem digitação livre no fluxo principal; motivo de parada é botão, não campo de texto.
 - Estado de conexão e número de eventos pendentes sempre visíveis.
 - Bloqueio de navegação acidental (modo quiosque) e retorno automático à tela da máquina.
+
+### 5.6 Sequenciador de carga-máquina
+
+Decisão e alternativas recusadas em [ADR-0007](adr/0007-sequenciamento-como-proposta-auditavel.md); plano e
+ordem no roteiro em [06 §6](06-PARIDADE-COMPETITIVA.md#6-etapa-3--sequenciamento). Aqui fica a
+implementação.
+
+**Onde mora.** Em `lib/boxflow_sequenciador`, ao lado do motor de cálculo e com a mesma regra: não conhece
+Rails. Recebe um retrato imutável do estado (FS pendentes, máquinas, turnos, ferramental, regras, portões de
+chapa) e devolve uma proposta. Não lê nem escreve banco. É isso que permite reproduzir uma proposta de três
+semanas atrás a partir do registro em `sequencia_proposta`, com a mesma versão de algoritmo e a mesma
+semente, para descobrir por que ela sugeriu o que sugeriu.
+
+**Algoritmo, em duas fases.** Nenhuma delas exige solver — o problema é sequenciamento em máquinas
+paralelas com setup dependente da sequência, em cerca de dez máquinas:
+
+1. **Atribuição.** Para cada operação pendente, as máquinas candidatas são as que passam pelas restrições
+   duras (limites dimensionais, `PROIBIR`, ferramental disponível e dentro da vida útil, portão de chapa).
+   Entre as candidatas, custo = tempo estimado pelo motor do §4.5 com finalidade `ROTEIRIZACAO`, mais
+   penalidade das regras `PENALIZAR`, mais a fila já existente na máquina.
+2. **Sequenciamento por máquina.** Despacho guloso por folga de prazo, com **antecipação de afinidade**:
+   antes de fixar a próxima posição, verifica se algum trabalho adiante compartilha faca, clichê ou
+   qualidade de chapa com o atual e se puxá-lo para cá economiza mais setup do que custa em atraso. Depois,
+   busca local (troca e reinserção) sob orçamento de tempo fixo, aceitando só melhora do objetivo.
+
+O objetivo é `peso_atraso × atraso_ponderado_por_prioridade + peso_setup × minutos_de_setup`. Os dois pesos
+são parâmetro do contratante e ficam gravados na proposta, porque a fábrica que vive de prazo e a que vive
+de margem querem respostas diferentes — e porque comparar duas propostas exige saber com que pesos cada uma
+foi feita.
+
+**Determinismo.** Semente fixa gravada em `sequencia_proposta.semente`, nenhuma iteração sobre estrutura
+sem ordem definida, nenhuma leitura de relógio dentro do algoritmo — o "agora" entra como argumento. Sem
+isso não há teste reproduzível e o PCP não distingue mudança causada pela fábrica de mudança causada por
+sorteio.
+
+**Cadência.** Job do Solid Queue disparado por evento (`OF_LIBERADA`, `FS_CONCLUIDA`,
+`FERRAMENTAL_ALTERADO`, `CHAPA_RECEBIDA`, `ABERTURA_TURNO`) com carência de alguns minutos para agrupar
+rajadas, mais um piso de tempo para o caso de nada disparar. Uma proposta pendente é marcada `SUPERADA`
+quando outra nasce — proposta acumulada em fila é pior que proposta nenhuma, porque o PCP nunca sabe qual
+está olhando.
+
+Como o job é multi-contratante, vale o §3.5: `tenant_id` vai no payload e o `around_action` equivalente do
+job aplica o `SET LOCAL`. Sequenciador que vaza entre contratantes não é bug de programação, é incidente.
+
+**Horizonte congelado.** FS em `EM_SETUP` ou `EM_PRODUCAO` nunca se move. As próximas `N` por máquina
+(padrão 2) saem com `congelada = true` e `motivo_codigo = 'CONGELADA'`. O motivo é físico: o operador já
+está com a faca da próxima na bancada.
+
+**Escrita.** O algoritmo grava só `sequencia_proposta` e seus itens. `ficha_servico.sequencia_fila` é escrita
+pelo serviço de aceite, em transação, e só para itens não congelados.
+
+Testes obrigatórios do sequenciador:
+
+| Teste | O que prova |
+|---|---|
+| Mesma entrada duas vezes | Saída idêntica, item por item (determinismo) |
+| FS em `EM_PRODUCAO` | Não muda de posição em nenhuma circunstância |
+| Faca em `EM_MANUTENCAO` | O.F. sai da fila com `motivo_codigo = 'ADIADA_FERRAMENTAL'` |
+| `necessidade_chapa` pendente | O.F. não entra na fila, mesmo com prazo estourando |
+| Duas O.F. com a mesma faca e prazos folgados | Ficam adjacentes, e `economia_setup_min` é maior que zero |
+| Prazo apertado contra economia de setup | Com `peso_atraso` alto, o prazo vence; com `peso_setup` alto, o agrupamento vence |
+| Máquina não calibrada | Fica fora de `maquinas_incluidas` e sua fila não é tocada |
+| Proposta anterior pendente | Passa a `SUPERADA` quando a nova nasce |
+| Dois contratantes com dados semelhantes | Nenhuma FS de um aparece na proposta do outro |
+| Aceite com edição | `posicao_aceita` difere de `posicao_proposta` e `situacao` fica `ACEITA_COM_EDICAO` |
 
 ## 6. Motor de sincronização
 
@@ -447,10 +557,19 @@ Sequência pensada para que cada fase entregue valor sozinha e reduza risco da s
 | **4** | PCP + Produção: O.F., roteiro, **Fichas de Serviço nos tablets**, homem-máquina, rastreio do pedido | Depende de F.T. e pedido existirem no sistema novo |
 | **5** | Estoque, conferência e expedição | Fecha o ciclo físico |
 | **6** | Fiscal (NF-e, IBS/CBS) e Financeiro | Último a migrar por ser o de maior risco regulatório; convive com o legado até estar provado |
-| **7** | Indicadores, OEE, painéis, portal do cliente | Só faz sentido com dado sendo coletado de verdade |
+| **7** | Indicadores, OEE, painéis, **modelo de leitura e retenção do histórico** | Só faz sentido com dado sendo coletado de verdade. O histórico sobe de prioridade dentro da fase: é substrato da fase 8, não enfeite ([ADR-0008](adr/0008-historico-analitico-no-mesmo-postgres.md)) |
+| **8** | Regras de velocidade e setup calibradas, não conformidade, cabimento de carga, e **só então o sequenciador** | Paridade competitiva ([06](06-PARIDADE-COMPETITIVA.md)). A ordem interna desta fase não é negociável: sequenciador antes de velocidade medida programa com número inventado |
+| **9** | Portal do cliente | Depende de tudo acima estar confiável para ser exposto a terceiro |
 
 As fases 3 e 4 são as que mudam a vida da empresa — e são também as que dependem de Wi-Fi e de adesão do
 operador. Recomenda-se **piloto em uma única máquina** antes de escalar para todas.
+
+Duas observações sobre as fases 7 e 8, acrescentadas em 28/09/2026. O portal do cliente saiu da fase 7 e
+virou fase 9: ele era o único item daquela lista que expõe dado a terceiro, e não faz sentido expor antes de
+o indicador interno estar confiável. E a fase 8 tem ordem interna obrigatória, explicada em
+[06 §2](06-PARIDADE-COMPETITIVA.md#2-a-cadeia-a-ordem-importa-mais-que-a-lista) — coleta confiável, depois
+histórico, depois calibração, depois sequenciamento. Construir na ordem inversa é o modo documentado de
+desperdiçar o esforço.
 
 ## 9. Observabilidade e qualidade em produção
 
@@ -475,6 +594,10 @@ operador. Recomenda-se **piloto em uma única máquina** antes de escalar para t
 | **E8** | Custódia do certificado A1 na nuvem: cofre do provedor ou serviço dedicado | Define cláusula contratual e o desenho do serviço de NF-e ([01-ARQUITETURA §8](01-ARQUITETURA.md)) |
 | **E9** | Migração do legado é por contratante ou só para o primeiro | O ETL do PcBoot serve um cliente; o segundo contratante pode vir de outro sistema |
 | **E10** | Planos comerciais: o que limita — usuários, dispositivos, volume de anexo | Define o que precisa ser medido por contratante desde a fase 0 |
+| **E11** | Vazão real: quantas O.F. e FS por dia | A estimativa do [ADR-0008](adr/0008-historico-analitico-no-mesmo-postgres.md) é derivada da contagem de orçamentos, não medida. Decide partição das tabelas de evento |
+| **E12** | O PcBoot guarda tempo **real** de setup e produção, ou só o previsto? | Se guarda, a semente da calibração vem do ETL e a linha de base do sequenciador já existe. Se não, são 30 dias de medição antes de ligar ([06 §4.6](06-PARIDADE-COMPETITIVA.md#46-calibração-de-onde-saem-os-números)) |
+| **E13** | Dono da regra de velocidade: engenharia ou PCP? | Define permissão de escrita em `maquina_regra` e quem aceita a recalibração proposta |
+| **E14** | A fábrica quer otimizar prazo ou margem? | Define `peso_atraso` e `peso_setup` iniciais do objetivo do sequenciador (§5.6) |
 
 ## Histórico de revisões
 
@@ -482,3 +605,4 @@ operador. Recomenda-se **piloto em uma única máquina** antes de escalar para t
 |---|---|
 | 27/09/2026 | Versão inicial: stack, padrões, motor de fórmulas, fichas de serviço, sincronização, migração, fases |
 | 28/09/2026 | Stack trocada para **Ruby on Rails** ([ADR-0005](adr/0005-ruby-on-rails-e-hotwire.md)): §1 e §2 reescritos, fronteira servidor/cliente declarada (§1.1), `schema_format = :sql` (§3.3), multi-contratante com RLS (§3.5), tema do contratante (§3.6), proibição explícita de `eval` no motor (§4.2), sincronização reduzida a um eixo (§6.1), cenários de teste de nuvem pura (§6.5), E4 respondida, E8–E10 abertas |
+| 28/09/2026 | Paridade competitiva ([06](06-PARIDADE-COMPETITIVA.md)): motor de regras de velocidade e setup (§4.5), sequenciador de carga-máquina com determinismo e horizonte congelado (§5.6), gem `boxflow_sequenciador` no §2, fases 8 e 9 com ordem interna obrigatória (§8), questões E11–E14 |

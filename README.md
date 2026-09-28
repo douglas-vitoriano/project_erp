@@ -66,12 +66,13 @@ dentro dos documentos.
 | [docs/03-BANCO-DE-DADOS.md](docs/03-BANCO-DE-DADOS.md) | Modelo de dados completo: convenções, tabelas, colunas, tipos, chaves, restrições, índices e views |
 | [docs/04-MARCA.md](docs/04-MARCA.md) | Identidade do BoxFlow, paleta com contraste medido, e o contrato de marca branca por contratante |
 | [docs/05-INFRAESTRUTURA-E-CUSTOS.md](docs/05-INFRAESTRUTURA-E-CUSTOS.md) | Onde hospedar, quanto custa, domínio HTTPS sem Registro.br |
+| [docs/06-PARIDADE-COMPETITIVA.md](docs/06-PARIDADE-COMPETITIVA.md) | Comparação com o Kiwiplan: as lacunas reais, a ordem em que fecham e o que não vamos copiar |
 | [docs/adr/](docs/adr/) | Registros de decisão de arquitetura — o "por quê" de cada escolha estrutural |
 
 O processo para manter os documentos vivos quando houver mudança está em
 [`docs/README.md`](docs/README.md).
 
-## As cinco decisões que definem o sistema
+## As seis decisões que definem o sistema
 
 **Nuvem pura: nada é instalado na fábrica.** Como o BoxFlow é SaaS, um servidor on-premise por contratante
 significaria o fornecedor operando um parque de servidores espalhados, com defasagem de versão entre
@@ -103,6 +104,14 @@ deriva a escala inteira, validando contraste na gravação. As cores de estado d
 parada, setup, produzindo, refugo — são fixas e não customizáveis, porque o operador **aprende a cor**:
 se vermelho é parada em um cliente e barra superior em outro, vermelho deixa de significar algo. Ver
 [ADR-0006](docs/adr/0006-marca-branca-por-contratante.md) e [04-MARCA](docs/04-MARCA.md).
+
+**O sequenciamento de produção propõe; a pessoa aceita.** A comparação com o Kiwiplan mostrou que a única
+lacuna funcional séria é a programação automática da fábrica. Ela entra — mas gravando uma proposta com
+motivo em português por posição, que o PCP aceita, edita ou recusa. O que o chão de fábrica vê é sempre
+uma sequência aprovada por um humano identificado. Duas razões: os nossos tempos de setup e velocidade
+ainda não são medidos, e a divergência entre proposta e aceite é justamente o dado que calibra o modelo.
+Ver [ADR-0007](docs/adr/0007-sequenciamento-como-proposta-auditavel.md) e
+[06-PARIDADE-COMPETITIVA](docs/06-PARIDADE-COMPETITIVA.md).
 
 ## Marca
 
@@ -146,6 +155,7 @@ O repositório é público, então **nenhum dado real de cliente está versionad
 | Documentação de arquitetura, engenharia, banco, marca e infraestrutura | Escrita e revisada |
 | Marca BoxFlow (vetor, variações, favicon) | Gerada e documentada |
 | Protótipo de interface dos quatro dispositivos | Navegável; ainda com a identidade anterior |
+| Paridade funcional contra o Kiwiplan | Levantada; plano e critérios de aceite no [doc 06](docs/06-PARIDADE-COMPETITIVA.md) |
 | Identificação do banco legado | Script pronto, aguardando execução na fábrica |
 | Backend, banco e migração | Não iniciados |
 

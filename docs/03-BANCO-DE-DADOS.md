@@ -19,8 +19,8 @@ graph LR
     AMO["5. Amostras<br/>requisição, protocolo,<br/>assinatura, projeto"]
     COM["6. Comercial<br/>orçamento, pedido,<br/>entrega programada"]
     SUP["7. Suprimentos<br/>pedido compra,<br/>recebimento"]
-    PCP["8. PCP<br/>O.F., roteiro,<br/>carga-máquina"]
-    PRO["9. Produção<br/>ficha de serviço,<br/>apontamento, parada"]
+    PCP["8. PCP<br/>O.F., roteiro, carga-máquina,<br/>regra de velocidade, proposta de sequência"]
+    PRO["9. Produção<br/>ficha de serviço, apontamento,<br/>parada, não conformidade"]
     EST["10. Estoque<br/>item, saldo,<br/>movimento, lote"]
     EXP["11. Expedição<br/>conferência, volume,<br/>carga, romaneio"]
     FIS["12. Fiscal<br/>NF-e, tributação,<br/>série"]
@@ -126,6 +126,10 @@ depender de deploy para isso.
    segurança além do filtro da aplicação.
 5. Toda tabela replicada para dispositivo tem gatilho de `sync_alteracao` (§4.2).
 6. `timestamptz` sempre — nunca `timestamp` sem fuso. Tablet em rua e servidor precisam concordar.
+7. **A ordem de leitura deste documento não é a ordem de criação das tabelas.** Os módulos estão agrupados
+   por assunto, então há referência para frente (`necessidade_chapa` aponta para `item`, que só aparece no
+   §12). A ordem real de criação é resolvida nas migrações, e é por isso que o `structure.sql` é a fonte da
+   verdade do schema, não este texto.
 
 ---
 
@@ -1820,6 +1824,170 @@ Três regras de negócio que moram aqui:
 3. `data_necessidade` retrocede do prazo do pedido descontando fila de máquina, e é comparada com
    `lead_time_dias` do fornecedor. Divergência aqui é alerta de atraso **antes** de o atraso acontecer.
 
+### 10.2 Regras de velocidade e de setup
+
+As tabelas que substituem o escalar `maquina.capacidade_hora` como base de cálculo. O escalar continua
+existindo — é o **máximo teórico**, o ponto de partida — mas a velocidade que orçamento e programação usam
+passa a ser o resultado da degradação por característica do trabalho. Motivo e desenho em
+[06-PARIDADE-COMPETITIVA §4](06-PARIDADE-COMPETITIVA.md#4-etapa-1--velocidade-e-setup-em-que-se-possa-acreditar).
+
+```sql
+create table maquina_regra (
+  -- + COLUNAS_PADRAO
+  maquina_id        uuid not null references maquina(id),
+  descricao         text not null,                          -- "3ª cor vaza: limitar a 7.000/h"
+
+  -- para que serve: custear, roteirizar, ou as duas
+  finalidade        text not null default 'AMBOS'
+                    check (finalidade in ('CUSTEIO','ROTEIRIZACAO','AMBOS')),
+
+  -- CONDIÇÃO: vocabulário fechado, como as 7 variáveis do motor de fórmulas.
+  -- Atributo fora da lista é recusado, com mensagem dizendo qual foi rejeitado.
+  atributo          text not null
+                    check (atributo in ('NUMERO_CORES','ONDA','PAREDE','MENOR_PAINEL_MM','AREA_M2',
+                                        'PECAS_POR_CHAPA','GRAMATURA','TIPO_COLAGEM','ESTILO',
+                                        'QUALIDADE_CHAPA','TIPO_FERRAMENTAL')),
+  operador          text not null
+                    check (operador in ('IGUAL','DIFERENTE','MENOR','MENOR_IGUAL','MAIOR','MAIOR_IGUAL',
+                                        'ENTRE','EM')),
+  valor_numerico    numeric(18,4),                           -- para os operadores de comparação
+  valor_numerico_ate numeric(18,4),                          -- só para ENTRE
+  valor_texto       text,                                    -- para IGUAL / DIFERENTE textual
+  valor_lista       text[],                                  -- só para EM
+
+  -- EFEITO
+  efeito            text not null
+                    check (efeito in ('VELOCIDADE_TETO','VELOCIDADE_FATOR','SETUP_ADICIONAL_MIN',
+                                      'REFUGO_SETUP_FOLHAS','PROIBIR','PENALIZAR')),
+  valor_efeito      numeric(18,4),                           -- nulo apenas em PROIBIR
+
+  vigencia_inicio   date not null default current_date,
+  vigencia_fim      date,
+  ativo             boolean not null default true,
+
+  -- coerência entre operador e o campo de valor preenchido
+  check (operador <> 'ENTRE' or (valor_numerico is not null and valor_numerico_ate is not null
+                                 and valor_numerico_ate >= valor_numerico)),
+  check (operador <> 'EM' or (valor_lista is not null and cardinality(valor_lista) > 0)),
+  check (operador not in ('MENOR','MENOR_IGUAL','MAIOR','MAIOR_IGUAL') or valor_numerico is not null),
+  check (operador not in ('IGUAL','DIFERENTE')
+         or valor_numerico is not null or valor_texto is not null),
+  check (efeito = 'PROIBIR' or valor_efeito is not null),
+  check (efeito <> 'VELOCIDADE_FATOR' or (valor_efeito > 0 and valor_efeito <= 1)),
+  check (vigencia_fim is null or vigencia_fim >= vigencia_inicio)
+);
+
+create index on maquina_regra (tenant_id, maquina_id, finalidade, ativo);
+
+create table maquina_setup_transicao (                       -- setup depende da TRANSIÇÃO, não do trabalho
+  -- + COLUNAS_PADRAO
+  maquina_id        uuid not null references maquina(id),
+  mudanca           text not null
+                    check (mudanca in ('MESMA_FACA_MESMO_CLICHE','MESMA_FACA_OUTRO_CLICHE',
+                                       'OUTRA_FACA_MESMO_CLICHE','TROCA_COMPLETA',
+                                       'MUDA_QUALIDADE_CHAPA','MUDA_FORMATO_CHAPA','MUDA_COR_PRINCIPAL')),
+  minutos           numeric(10,2) not null check (minutos >= 0),
+  refugo_folhas     quantidade not null default 0,
+  medido_em         date,                                    -- nulo = valor estimado, não medido
+  amostras          integer not null default 0,              -- quantas FS sustentam este número
+  unique (tenant_id, empresa_id, maquina_id, mudanca)
+);
+```
+
+**A composição dos efeitos é independente de ordem** — e isso é decisão, não detalhe de implementação.
+Partindo de `maquina.capacidade_hora`, entre todas as regras que casaram: `VELOCIDADE_TETO` vale o **menor**
+valor, `VELOCIDADE_FATOR` vale o **produto**, `SETUP_ADICIONAL_MIN` e `REFUGO_SETUP_FOLHAS` valem a **soma**,
+`PROIBIR` basta **uma** para bloquear, e `PENALIZAR` **soma** pesos que o sequenciador usa como custo.
+
+Lista ordenada com sobrescrita foi recusada de propósito: ela cria regra sombreada que nunca dispara e que
+ninguém consegue explicar, e faz o resultado depender do acidente da ordem de cadastro. Aqui a explicação de
+um número é simplesmente a lista de regras que casaram.
+
+Sobre `medido_em` e `amostras` em `maquina_setup_transicao`: as duas colunas existem para que ninguém
+confunda tempo medido com tempo chutado. Transição sem medição é hipótese, e o sistema mostra isso na tela
+em vez de apresentar estimativa com cara de fato.
+
+### 10.3 Proposta de sequência
+
+O sequenciador **propõe** e uma pessoa **aceita** — `ficha_servico.sequencia_fila` só é escrita depois do
+aceite. A decisão e as alternativas recusadas estão em
+[ADR-0007](adr/0007-sequenciamento-como-proposta-auditavel.md).
+
+```sql
+create table sequencia_proposta (
+  -- + COLUNAS_PADRAO
+  numero            integer not null,
+  gerada_em         timestamptz not null default now(),
+  disparada_por     text not null
+                    check (disparada_por in ('OF_LIBERADA','FS_CONCLUIDA','FERRAMENTAL_ALTERADO',
+                                             'CHAPA_RECEBIDA','ABERTURA_TURNO','PISO_DE_TEMPO','MANUAL')),
+  algoritmo_versao  text not null,                           -- para comparar safras de proposta
+  semente           bigint not null,                         -- determinismo: mesma entrada, mesma saída
+  peso_atraso       numeric(8,4) not null,                   -- parâmetros do objetivo, gravados
+  peso_setup        numeric(8,4) not null,
+  horizonte_dias    smallint not null default 30,
+  maquinas_incluidas uuid[] not null,                        -- máquina não calibrada fica fora
+  duracao_calculo_ms integer,
+
+  -- resultado previsto, para comparar com o realizado depois
+  minutos_setup_previstos  numeric(12,2),
+  minutos_producao_previstos numeric(12,2),
+  fs_atrasadas_previstas   integer,
+
+  situacao          text not null default 'PROPOSTA'
+                    check (situacao in ('PROPOSTA','ACEITA','ACEITA_COM_EDICAO','RECUSADA','SUPERADA')),
+  decidida_em       timestamptz,
+  decidida_por      uuid references usuario(id),
+  justificativa_recusa text,
+
+  unique (tenant_id, empresa_id, numero),
+  check (situacao = 'PROPOSTA' or situacao = 'SUPERADA' or decidida_por is not null)
+);
+
+create index on sequencia_proposta (tenant_id, situacao, gerada_em desc);
+
+create table sequencia_proposta_item (
+  -- + COLUNAS_PADRAO
+  sequencia_proposta_id uuid not null references sequencia_proposta(id),
+  ficha_servico_id  uuid not null references ficha_servico(id),
+  maquina_id        uuid not null references maquina(id),
+
+  posicao_atual     integer,                                 -- onde estava antes (nulo = fora da fila)
+  posicao_proposta  integer not null,
+  posicao_aceita    integer,                                 -- difere da proposta = PCP editou
+
+  congelada         boolean not null default false,          -- setup já iniciado: intocável
+
+  inicio_previsto   timestamptz,
+  fim_previsto      timestamptz,
+  minutos_setup_previstos numeric(10,2),
+  transicao         text,                                    -- qual mudança de setup esta posição implica
+  economia_setup_min numeric(10,2),                          -- contra a posição alternativa
+
+  -- o que faz a proposta ser aceita: motivo legível, não score
+  motivo_codigo     text not null
+                    check (motivo_codigo in ('AGRUPADA_FERRAMENTAL','AGRUPADA_QUALIDADE','ANTECIPADA_PRAZO',
+                                             'ADIADA_FERRAMENTAL','ADIADA_CHAPA','ADIADA_CAPACIDADE',
+                                             'PRIORIDADE_MANUAL','CONGELADA','SEM_ALTERACAO')),
+  motivo_texto      text not null,                           -- "agrupada com a anterior: faca F-1042, -35 min"
+
+  unique (sequencia_proposta_id, ficha_servico_id)
+);
+
+create index on sequencia_proposta_item (sequencia_proposta_id, maquina_id, posicao_proposta);
+create index on sequencia_proposta_item (ficha_servico_id);
+```
+
+Três colunas carregam o valor de longo prazo desta tabela:
+
+- **`posicao_atual` contra `posicao_proposta`** mostra o quanto o algoritmo está mexendo. Proposta que
+  reembaralha tudo toda rodada é proposta que ninguém vai aceitar, ainda que esteja certa.
+- **`posicao_proposta` contra `posicao_aceita`** é a medida de qualidade **do modelo**, não do PCP. Quando a
+  mesma FS é movida toda semana, existe uma restrição real que ninguém declarou — e descobrir qual é vale
+  mais que o ganho da rodada.
+- **`minutos_setup_previstos`** contra o setup realizado na FS alimenta de volta
+  `maquina_setup_transicao.medido_em`, fechando o ciclo de calibração.
+
 ---
 
 ## 11. Módulo 9 — Produção (Fichas de Serviço)
@@ -1881,7 +2049,11 @@ create table ficha_servico_apontamento (                    -- APPEND-ONLY: sem 
   quantidade_refugo quantidade,
   motivo_parada_id  uuid references motivo_parada(id),
   motivo_refugo_id  uuid references motivo_refugo(id),
+  fase              text check (fase in ('SETUP','PRODUCAO')),  -- refugo de setup ≠ refugo de processo
   observacao        text,
+
+  -- refugo sem fase não serve para decidir nada: são dois números com causas diferentes
+  check (evento <> 'REFUGO' or fase is not null),
 
   -- estorno: correção é evento novo, nominal e justificado
   apontamento_estornado_id uuid references ficha_servico_apontamento(id),
@@ -1954,6 +2126,101 @@ create table consumo_material (                             -- append-only
   unique (tenant_id, idempotencia_chave)
 );
 ```
+
+### 11.1 Por que `fase` é obrigatória no refugo
+
+Refugo de setup e refugo de produção são dois números com causas, donos e tratamentos diferentes. O
+primeiro é custo de troca de faca e clichê: previsível, orçável, e é ele que alimenta o efeito
+`REFUGO_SETUP_FOLHAS` das regras de §10.2. O segundo é problema de processo: imprevisto, indesejado, e
+alimenta a não conformidade de §11.2.
+
+Somados numa coluna só, nenhum dos dois serve para decidir nada — a fábrica não sabe se o refugo do mês
+subiu porque houve mais troca (esperado, e talvez até bom, se foram mais pedidos) ou porque a máquina está
+desregulada. Daí o `CHECK` que recusa apontamento de `REFUGO` sem fase.
+
+A mesma coluna serve ao apontamento de `PARADA` quando a parada acontece durante o setup, o que separa
+parada de preparação de parada de produção no cálculo de OEE.
+
+### 11.2 Não conformidade e ação corretiva
+
+Duas tabelas que entram **independentemente de certificação**. Hoje `motivo_refugo.responsavel` já aceita
+`FORNECEDOR`, `ENGENHARIA` e `CLIENTE`, mas esse apontamento não tem onde desaguar: refugo atribuído ao
+fornecedor que não gera tratativa é dinheiro que a empresa larga na mesa.
+
+A não conformidade é a **junção do que já existe** — as quatro origens estão todas modeladas. O aparato de
+certificação (controle de documento vigente, registro de auditoria, verificação de eficácia, qualificação
+de fornecedor) fica esperando a **Q8** ([00 §6.2](00-CENARIO-E-PREMISSAS.md#62-abertas)), porque inventar
+burocracia antes de saber se há ISO ou BRC em jogo é criar trabalho para o cliente cumprir sem motivo.
+
+```sql
+create table nao_conformidade (
+  -- + COLUNAS_PADRAO
+  numero            integer not null,
+  origem            text not null
+                    check (origem in ('CONFERENCIA','RECEBIMENTO','RECLAMACAO_CLIENTE',
+                                      'OCORRENCIA_ENTREGA','AUDITORIA_INTERNA','OUTRA')),
+
+  -- de onde veio: exatamente uma destas, conforme a origem
+  conferencia_id    uuid references conferencia(id),
+  recebimento_item_id uuid references recebimento_item(id),
+  ficha_servico_apontamento_id uuid references ficha_servico_apontamento(id),
+  entrega_ocorrencia_id uuid references entrega_ocorrencia(id),
+
+  -- contra o que se reclama
+  cliente_id        uuid references cliente(id),
+  fornecedor_id     uuid references fornecedor(id),
+  ficha_tecnica_id  uuid references ficha_tecnica(id),
+  ordem_fabricacao_id uuid references ordem_fabricacao(id),
+  lote_id           uuid references lote(id),
+
+  descricao         text not null,
+  quantidade_afetada quantidade,
+  custo_estimado    dinheiro,
+  responsavel       text check (responsavel in ('PRODUCAO','ENGENHARIA','FORNECEDOR','CLIENTE','TRANSPORTE')),
+  gravidade         text not null default 'MEDIA'
+                    check (gravidade in ('BAIXA','MEDIA','ALTA','CRITICA')),
+
+  aberta_em         timestamptz not null default now(),
+  aberta_por        uuid references usuario(id),
+  prazo_tratativa   date,
+  encerrada_em      timestamptz,
+  encerrada_por     uuid references usuario(id),
+  desfecho          text check (desfecho in ('PROCEDENTE','IMPROCEDENTE','PARCIAL','SEM_CONCLUSAO')),
+
+  situacao          text not null default 'ABERTA'
+                    check (situacao in ('ABERTA','EM_ANALISE','EM_TRATATIVA','ENCERRADA','CANCELADA')),
+  documento_id      uuid references documento(id),           -- foto do defeito, laudo
+  unique (tenant_id, empresa_id, numero),
+  check (situacao <> 'ENCERRADA' or (encerrada_em is not null and desfecho is not null))
+);
+
+create index on nao_conformidade (tenant_id, situacao, aberta_em desc);
+create index on nao_conformidade (fornecedor_id) where fornecedor_id is not null;
+create index on nao_conformidade (cliente_id) where cliente_id is not null;
+
+create table acao_corretiva (
+  -- + COLUNAS_PADRAO
+  nao_conformidade_id uuid not null references nao_conformidade(id),
+  tipo              text not null
+                    check (tipo in ('CONTENCAO','CORRECAO','PREVENCAO')),
+  descricao         text not null,
+  causa_raiz        text,
+  responsavel_id    uuid references usuario(id),
+  prazo             date,
+  concluida_em      timestamptz,
+  eficacia_verificada_em timestamptz,                        -- usado se a Q8 exigir
+  eficaz            boolean,
+  situacao          text not null default 'PENDENTE'
+                    check (situacao in ('PENDENTE','EM_ANDAMENTO','CONCLUIDA','CANCELADA'))
+);
+
+create index on acao_corretiva (nao_conformidade_id);
+create index on acao_corretiva (responsavel_id, prazo) where situacao <> 'CONCLUIDA';
+```
+
+A distinção entre `CONTENCAO`, `CORRECAO` e `PREVENCAO` não é enfeite de norma: contenção é o que se faz
+hoje para o cliente não receber caixa ruim, correção é consertar o lote, prevenção é impedir a repetição.
+Misturar as três num campo de texto é o que faz não conformidade virar arquivo morto.
 
 ---
 
@@ -2133,20 +2400,43 @@ create table volume (                                       -- pallet / amarrado
                     check (situacao in ('EM_PRODUCAO','DISPONIVEL','RESERVADO','EMBARCADO','ENTREGUE','DEVOLVIDO'))
 );
 
+create table veiculo (                                       -- existe para haver contra o que conferir
+  -- + COLUNAS_PADRAO
+  placa             text not null,
+  transportadora_id uuid references transportadora(id),      -- nulo = frota própria
+  descricao         text,
+  tipo              text check (tipo in ('TRUCK','TOCO','CARRETA','VUC','UTILITARIO','OUTRO')),
+  capacidade_kg     numeric(12,3),
+  capacidade_m3     numeric(12,3),
+  posicoes_pallet   smallint,
+  ativo             boolean not null default true,
+  unique (tenant_id, placa)
+);
+
 create table carga (
   -- + COLUNAS_PADRAO
   numero            integer not null,
   transportadora_id uuid references transportadora(id),
-  placa             text,
+  veiculo_id        uuid references veiculo(id),
+  placa             text,                                    -- mantido: veículo de terceiro não cadastrado
   motorista         text,
   data_prevista     date,
   data_saida        timestamptz,
+
+  -- ocupação: totais somados dos volumes, para conferir contra a capacidade do veículo
   peso_total_kg     numeric(12,3),
+  volume_total_m3   numeric(12,3),
+  pallets_total     smallint,
+  ocupacao_peso_pct percentual,
+  ocupacao_pallet_pct percentual,
+
   valor_frete       dinheiro,
   situacao          text not null default 'MONTAGEM'
                     check (situacao in ('MONTAGEM','CONFERIDA','CARREGADA','EM_TRANSITO','ENTREGUE','CANCELADA')),
   unique (tenant_id, empresa_id, numero)
 );
+
+create index on carga (tenant_id, situacao, data_prevista);
 
 create table entrega (
   -- + COLUNAS_PADRAO
@@ -2173,6 +2463,22 @@ create table entrega_ocorrencia (
   usuario_id uuid references usuario(id)
 );
 ```
+
+### 12.2 Cabimento de carga, e por que não roteirização
+
+`veiculo` existe por um motivo simples: antes dela, `carga.placa` era texto livre, e portanto **não havia
+contra o que conferir**. Carga acima da capacidade só aparecia na balança da rodovia ou na multa.
+
+Com capacidade cadastrada, fechar a carga passa a checar peso, posições de pallet e volume, e a ocupação
+fica visível — o que também mostra o caso oposto, que é caminhão saindo com meia carga porque ninguém viu
+que havia outra entrega para a mesma zona no mesmo dia. A sugestão de agrupamento por
+`zona_entrega` e data resolve isso sem otimização nenhuma.
+
+O que **não** entra é roteirização. Otimizar rota exige endereço geocodificado confiável, tempo de percurso,
+janela de recebimento por cliente e frota conhecida — quatro dados que hoje não temos. Para entrega
+regional a partir de uma fábrica, a economia é pequena diante do custo de errar, e errar aqui é caminhão na
+porta errada. Revisar se o cliente tiver frota própria e o frete virar linha relevante de custo
+([06 §8.2](06-PARIDADE-COMPETITIVA.md#82-carga-cabimento-sim-roteirização-não)).
 
 ---
 
@@ -2547,6 +2853,51 @@ select fs.tenant_id, fs.empresa_id, fs.maquina_id,
 
 create unique index on mvw_oee_maquina_dia (tenant_id, empresa_id, maquina_id, dia);
 
+-- Apontamento suspeito: cadeia de eventos incompleta ou velocidade fisicamente impossível.
+-- O alvo é corrigir o hábito de apontar em lote no fim do turno, não punir ninguém.
+create view vw_apontamento_suspeito as
+select * from (
+  select fs.tenant_id, fs.empresa_id, fs.id as ficha_servico_id, fs.numero, fs.maquina_id,
+         m.nome as maquina, fs.status, fs.data_inicio_real,
+         case
+           when fs.status = 'CONCLUIDA' and not exists (
+                select 1 from ficha_servico_apontamento a
+                 where a.ficha_servico_id = fs.id and a.evento = 'SETUP_FIM')
+                then 'SETUP_SEM_FIM'
+           when fs.quantidade_produzida > 0 and not exists (
+                select 1 from ficha_servico_apontamento a
+                 where a.ficha_servico_id = fs.id and a.evento = 'PRODUCAO_INICIO')
+                then 'PRODUCAO_SEM_INICIO'
+           when fs.tempo_producao_min > 0 and m.capacidade_hora is not null
+                and (fs.quantidade_produzida / (fs.tempo_producao_min / 60.0)) > m.capacidade_hora
+                then 'VELOCIDADE_IMPOSSIVEL'
+           when fs.status in ('PARADA','PAUSADA') and not exists (
+                select 1 from ficha_servico_apontamento a
+                 where a.ficha_servico_id = fs.id and a.motivo_parada_id is not null)
+                then 'PARADA_SEM_MOTIVO'
+         end as suspeita
+    from ficha_servico fs
+    join maquina m on m.id = fs.maquina_id
+   where fs.deletado_em is null
+) s
+ where s.suspeita is not null;
+
+-- Aderência da proposta de sequência: mede a qualidade DO MODELO, não do PCP
+create view vw_aderencia_sequencia as
+select sp.tenant_id, sp.empresa_id, sp.id as sequencia_proposta_id, sp.numero,
+       sp.gerada_em, sp.disparada_por, sp.situacao, sp.algoritmo_versao,
+       count(*)                                                as itens,
+       count(*) filter (where spi.posicao_aceita is null)       as itens_sem_decisao,
+       count(*) filter (where spi.posicao_aceita = spi.posicao_proposta) as itens_aceitos_sem_edicao,
+       count(*) filter (where spi.posicao_aceita is not null
+                          and spi.posicao_aceita <> spi.posicao_proposta) as itens_editados,
+       count(*) filter (where spi.posicao_atual is distinct from spi.posicao_proposta) as itens_movidos,
+       sum(spi.economia_setup_min)                              as economia_setup_prevista_min
+  from sequencia_proposta sp
+  join sequencia_proposta_item spi on spi.sequencia_proposta_id = sp.id
+ where sp.deletado_em is null
+ group by 1,2,3,4,5,6,7,8;
+
 -- Fila de amostras por idade: o indicador que hoje dói (58% aguardando em 2026)
 create view vw_amostra_pendente as
 select a.tenant_id, a.empresa_id, a.id, a.numero, a.data_emissao,
@@ -2601,6 +2952,10 @@ select a.tenant_id, a.empresa_id, a.id, a.numero, a.data_emissao,
 | — (não existia) | `ficha_servico`, `ficha_servico_apontamento`, `ficha_servico_operador` |
 | — (não existia) | `necessidade_chapa` (ponte engenharia → PCP → compra de chapa) |
 | — (não existia) | Módulo 2 inteiro (sincronização) |
+| — (não existia) | `maquina_regra` + `maquina_setup_transicao` (velocidade real em vez de escalar) |
+| — (não existia) | `sequencia_proposta` + `sequencia_proposta_item` (sequenciamento com motivo e aceite) |
+| — (não existia) | `nao_conformidade` + `acao_corretiva` |
+| — (não existia) | `veiculo` (capacidade contra a qual conferir a carga) |
 
 ## 18. Questões abertas do modelo
 
@@ -2614,10 +2969,14 @@ select a.tenant_id, a.empresa_id, a.id, a.numero, a.data_emissao,
 | D6 | Retenção do `sync_alteracao` de 90 dias é suficiente para o pior caso de tablet desconectado? | Se um vendedor pode passar meses sem sincronizar, aumentar retenção ou padronizar recarga completa |
 | D7 | A chapa vem sempre no formato exato ou há formato padrão refilado internamente? (Q9 do doc 00) | Se há refile: `entrega_no_formato = false` passa a ser o caso comum, `REFILE` entra no roteiro padrão e a sobra vira item de estoque com giro próprio |
 | D8 | Existe estoque de chapa de giro ou tudo é comprado por O.F.? (Q10 do doc 00) | Define se `item.estoque_minimo` da chapa é usado para ponto de pedido ou fica sempre nulo |
+| **D9** | Vazão real de FS e apontamentos por dia | A estimativa do [ADR-0008](adr/0008-historico-analitico-no-mesmo-postgres.md) é derivada da contagem de orçamentos, não medida. Se estiver uma ordem de grandeza abaixo, decide partição das tabelas de evento — e partição briga com a idempotência offline, como o ADR explica (E11 do [06 §12](06-PARIDADE-COMPETITIVA.md#12-questões-abertas)) |
+| **D10** | O `maquina_regra` precisa de atributo por cliente? | Hoje o vocabulário é só físico, de propósito. Se a fábrica tiver regra do tipo "trabalho do cliente X sempre na máquina Y", isso é prioridade comercial e deve entrar como prioridade da O.F., não como regra de máquina — confirmar se resolve |
+| **D11** | Não conformidade precisa de numeração própria por origem? | Hoje `nao_conformidade.numero` é sequencial único. Se a qualidade exigir série separada para reclamação de cliente e para desvio interno, entra em `serie_fiscal` ou em `numerador` |
 
 ## Histórico de revisões
 
 | Data | Autor | Mudança |
 |---|---|---|
 | 27/09/2026 | — | Versão inicial. Substitui o modelo v0 (`Novo Documento de Texto.txt`), acrescentando os módulos de Engenharia de Produto, Amostras, Produção (Fichas de Serviço), Sincronização, Suprimentos, Expedição e a expansão de Fiscal e Financeiro |
+| 28/09/2026 | — | Paridade competitiva ([06](06-PARIDADE-COMPETITIVA.md)): novas `maquina_regra` e `maquina_setup_transicao` (§10.2), `sequencia_proposta` e `sequencia_proposta_item` (§10.3), `nao_conformidade` e `acao_corretiva` (§11.2), `veiculo` (§12); coluna `fase` obrigatória no apontamento de refugo; `carga` com ocupação; views `vw_apontamento_suspeito` e `vw_aderencia_sequencia`; regra transversal 7 sobre ordem de criação; questões D9 a D11 |
 | 27/09/2026 | — | Confirmado que a empresa **compra chapa pronta e converte**. Ajustes: `qualidade_chapa` separada de `qualidade_chapa_fornecedor`; nova tabela `necessidade_chapa`; SKU de chapa = qualidade + formato com índice único; `item.tipo` sem `BOBINA`; `maquina.tipo` sem `ONDULADEIRA` e com tipos de conversão; `operacao` com carga inicial de conversão; `ordem_fabricacao` com `AGUARDANDO_CHAPA` e `data_chapa_prevista`; `recebimento_item` com conferência de qualidade de entrada |

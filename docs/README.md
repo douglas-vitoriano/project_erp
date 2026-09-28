@@ -13,10 +13,12 @@ cartonagem vendido como SaaS. O primeiro contratante substitui o **Sistema Carto
 | [03-BANCO-DE-DADOS.md](03-BANCO-DE-DADOS.md) | Modelo de dados completo: convenções, tabelas, colunas, tipos, chaves, restrições, índices e views por módulo | Desenvolvimento, DBA |
 | [04-MARCA.md](04-MARCA.md) | Identidade do BoxFlow, paleta, contraste medido, e o contrato de marca branca por contratante | Produto, interface, comercial |
 | [05-INFRAESTRUTURA-E-CUSTOS.md](05-INFRAESTRUTURA-E-CUSTOS.md) | Onde hospedar, quanto custa, domínio HTTPS sem Registro.br, plano de migração de provedor | Infra, financeiro |
+| [06-PARIDADE-COMPETITIVA.md](06-PARIDADE-COMPETITIVA.md) | Comparação com o Kiwiplan: as lacunas reais, a ordem em que fecham, o que não vamos copiar e os critérios de aceite | Produto, desenvolvimento, comercial |
 | [adr/](adr/) | Registros de decisão de arquitetura — o "por quê" de cada escolha estrutural | Todos |
 
 Leia na ordem 00 → 01 → 02 → 03. A marca (04) e a infraestrutura (05) são independentes e podem ser
-lidas a qualquer momento. Os ADRs são referenciados de dentro dos documentos.
+lidas a qualquer momento. O 06 é o roteiro de evolução funcional e supõe o 02 e o 03 lidos. Os ADRs são
+referenciados de dentro dos documentos.
 
 ## Decisões de arquitetura
 
@@ -28,9 +30,13 @@ lidas a qualquer momento. Os ADRs são referenciados de dentro dos documentos.
 | [0004](adr/0004-nuvem-pura-sem-servidor-na-fabrica.md) | **Nuvem pura: nenhum servidor dentro da fábrica** | Aceito |
 | [0005](adr/0005-ruby-on-rails-e-hotwire.md) | **Ruby on Rails, com NF-e em serviço isolado** | Aceito |
 | [0006](adr/0006-marca-branca-por-contratante.md) | **Marca branca por contratante, com sinalização travada** | Aceito |
+| [0007](adr/0007-sequenciamento-como-proposta-auditavel.md) | **Sequenciamento automático como proposta auditável, não como oráculo** | Aceito |
+| [0008](adr/0008-historico-analitico-no-mesmo-postgres.md) | **Histórico analítico no mesmo Postgres, sem data warehouse separado** | Aceito |
 
-Os três últimos são de 28/09/2026 e mudaram o projeto de forma substancial: ele deixou de ser uma
-instalação em uma empresa e passou a ser um produto.
+Do 0004 ao 0006, todos de 28/09/2026, o projeto mudou de forma substancial: deixou de ser uma instalação
+em uma empresa e passou a ser um produto. O 0007 e o 0008 vieram depois, no mesmo dia, da comparação com o
+Kiwiplan documentada no [06](06-PARIDADE-COMPETITIVA.md) — e os dois são decisões sobre **não** copiar o
+concorrente do jeito óbvio.
 
 ## Situação dos documentos anteriores
 
@@ -83,3 +89,4 @@ dos testes de regressão descritos em [02-ENGENHARIA §4.4](02-ENGENHARIA.md).
 |---|---|
 | 27/09/2026 | Criação do conjunto inicial de documentos (00 a 03 + ADRs 0001–0003) |
 | 28/09/2026 | Produto nomeado **BoxFlow** e transformado em SaaS: documentos 04 (marca) e 05 (infraestrutura e custos) criados, ADRs 0004–0006 adicionados, ADR-0001 marcado como superado. Acentuação deste arquivo recuperada |
+| 28/09/2026 | Documento 06 (paridade competitiva contra o Kiwiplan) criado, com ADRs 0007 e 0008. Doc 03 ganhou regras de velocidade, proposta de sequência, não conformidade e veículo; doc 02 ganhou o motor de regras, o sequenciador e as fases 8 e 9 |
