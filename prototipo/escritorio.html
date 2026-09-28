@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERP Cartonagem — Escritório</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/escritorio.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topo">
+    <div class="topo-marca">
+      <div class="cubo">📦</div>
+      <div>ERP Cartonagem<small>Nó Fábrica · rede local</small></div>
+    </div>
+
+    <div class="topo-empresa" title="Multi-empresa dentro do mesmo tenant">
+      <span>🏢</span><span id="empresaAtual">EMBALAGENS MODELO</span><span style="opacity:.5">▾</span>
+    </div>
+
+    <div class="topo-busca">
+      <span class="lupa">🔍</span>
+      <input id="buscaGlobal" type="search" placeholder="Buscar F.T., cliente, pedido, O.F., amostra…" autocomplete="off">
+    </div>
+
+    <div class="topo-dir">
+      <div class="sinc" title="Estado da sincronização com o nó em nuvem">
+        <i class="ponto"></i><span>Nuvem sincronizada</span>
+      </div>
+      <div class="avatar" title="Guilherme Marins · Engenharia">GM</div>
+    </div>
+  </header>
+
+  <nav class="lateral" id="lateral"></nav>
+
+  <main class="conteudo" id="conteudo"></main>
+
+</div>
+
+<script src="js/comum.js"></script>
+<script src="js/dados.js"></script>
+<script src="js/formulas.js"></script>
+<script src="js/caixa-svg.js"></script>
+<script src="js/escritorio.js"></script>
+</body>
+</html>

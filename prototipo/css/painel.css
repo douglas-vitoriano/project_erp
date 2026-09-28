@@ -1,0 +1,106 @@
+/* Painel pendurado na fábrica. Regra única: tem que ser legível a cinco metros,
+   por quem está de pé, de longe, sem óculos de leitura. Nada de tabela densa. */
+
+body.painel-tv { overflow: hidden; font-size: 18px; }
+
+.pnl { display: grid; grid-template-rows: 78px 1fr auto; height: 100vh; }
+body.painel-tv > .faixa-proto ~ .pnl { height: calc(100vh - 29px); }
+
+.pnl-topo {
+  display: flex; align-items: center; padding: 0 28px;
+  background: #151c28; border-bottom: 3px solid #222d40;
+}
+.pnl-marca { font-size: 24px; font-weight: 700; display: flex; align-items: baseline; gap: 12px; }
+.pnl-marca small { font-size: 14px; font-weight: 500; color: #7c8aa3; letter-spacing: .04em; }
+.pnl-topo-dir { margin-left: auto; text-align: right; }
+.pnl-hora { font-family: var(--mono); font-size: 34px; font-weight: 700; line-height: 1; }
+.pnl-data { font-size: 13px; color: #7c8aa3; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+
+.pnl-corpo { padding: 20px 28px; overflow: hidden; display: grid; gap: 20px; grid-template-rows: auto 1fr; }
+
+/* ---------------------------------------------------------------- faixa de metas */
+.pnl-metas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.pnl-meta {
+  background: #151c28; border: 2px solid #222d40; border-radius: 16px; padding: 16px 20px;
+}
+.pnl-meta .rot { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: #7c8aa3; }
+.pnl-meta .val { font-family: var(--mono); font-size: 44px; font-weight: 700; line-height: 1.05; margin-top: 4px; }
+.pnl-meta .sub { font-size: 13px; color: #7c8aa3; margin-top: 2px; }
+.pnl-meta.ok .val { color: #6fdd9d; }
+.pnl-meta.alerta .val { color: #f5c46a; }
+.pnl-meta.erro .val { color: #f19288; }
+.pnl-meta.info .val { color: #9fc0f5; }
+
+/* ---------------------------------------------------------------- colunas */
+.pnl-colunas { display: grid; grid-template-columns: 1.45fr 1fr; gap: 20px; overflow: hidden; }
+.pnl-bloco {
+  background: #151c28; border: 2px solid #222d40; border-radius: 16px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.pnl-bloco-cab {
+  padding: 12px 20px; border-bottom: 2px solid #222d40;
+  font-size: 13px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: #7c8aa3;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pnl-bloco-corpo { padding: 14px 20px; overflow-y: auto; }
+
+/* ---------------------------------------------------------------- posto */
+.pnl-posto {
+  display: grid; grid-template-columns: 1fr 190px 130px; gap: 16px; align-items: center;
+  padding: 14px 0; border-bottom: 1px solid #222d40;
+}
+.pnl-posto:last-child { border-bottom: none; }
+.pnl-posto .nome { font-size: 20px; font-weight: 700; }
+.pnl-posto .fs { font-size: 13px; color: #7c8aa3; margin-top: 2px; }
+.pnl-posto .qtd { font-family: var(--mono); font-size: 22px; font-weight: 700; text-align: right; }
+.pnl-posto .qtd small { display: block; font-size: 11px; color: #7c8aa3; font-family: var(--fonte); font-weight: 600; }
+.pnl-barra { height: 12px; border-radius: 999px; background: #222d40; overflow: hidden; }
+.pnl-barra > i { display: block; height: 100%; border-radius: 999px; background: var(--azul-500); }
+.pnl-barra.ok > i { background: #1f8f52; }
+.pnl-barra.alerta > i { background: #c9860b; }
+.pnl-barra.erro > i { background: #c0392b; }
+
+.pnl-estado {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; justify-self: end;
+}
+.pnl-estado.producao { background: rgba(31,143,82,.22); color: #6fdd9d; }
+.pnl-estado.setup { background: rgba(201,134,11,.22); color: #f5c46a; }
+.pnl-estado.parada { background: rgba(192,57,43,.24); color: #f19288; }
+.pnl-estado.livre { background: #2d3748; color: #a7b5cc; }
+.pnl-estado.manutencao { background: rgba(192,57,43,.24); color: #f19288; }
+
+/* ---------------------------------------------------------------- OEE */
+.oee-linha { display: grid; grid-template-columns: 150px 1fr 82px; gap: 14px; align-items: center; padding: 11px 0; }
+.oee-linha + .oee-linha { border-top: 1px solid #222d40; }
+.oee-nome { font-size: 15px; font-weight: 650; }
+.oee-nome small { display: block; font-size: 11px; color: #7c8aa3; font-weight: 500; }
+.oee-pilha { display: flex; gap: 5px; }
+.oee-pilha > div { flex: 1; }
+.oee-pilha .rot { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #7c8aa3; font-weight: 700; margin-bottom: 3px; }
+.oee-total { font-family: var(--mono); font-size: 26px; font-weight: 700; text-align: right; }
+.oee-total.ok { color: #6fdd9d; }
+.oee-total.alerta { color: #f5c46a; }
+.oee-total.erro { color: #f19288; }
+
+/* ---------------------------------------------------------------- alertas */
+.pnl-alerta {
+  display: flex; gap: 14px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid #222d40;
+}
+.pnl-alerta:last-child { border-bottom: none; }
+.pnl-alerta .ic { font-size: 24px; line-height: 1; flex: none; }
+.pnl-alerta .txt { font-size: 15px; font-weight: 650; line-height: 1.35; }
+.pnl-alerta .txt small { display: block; font-size: 12.5px; color: #7c8aa3; font-weight: 500; margin-top: 2px; }
+
+/* ---------------------------------------------------------------- rodapé rolante */
+.pnl-rodape {
+  background: #151c28; border-top: 3px solid #222d40; padding: 11px 28px;
+  font-size: 15px; display: flex; align-items: center; gap: 28px; overflow: hidden; white-space: nowrap;
+}
+.pnl-rodape .item { display: flex; align-items: center; gap: 9px; color: #a7b5cc; }
+.pnl-rodape .item b { color: #fff; font-family: var(--mono); }
+
+@media (max-width: 1200px) {
+  .pnl-metas { grid-template-columns: repeat(3, 1fr); }
+  .pnl-colunas { grid-template-columns: 1fr; }
+}

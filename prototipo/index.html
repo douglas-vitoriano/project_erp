@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERP Cartonagem — Protótipo</title>
+<meta name="description" content="Protótipo navegável do ERP Cartonagem: escritório, tablet de máquina, tablet do vendedor e painel de fábrica.">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { background: var(--azul-900); color: #fff; overflow-y: auto; }
+  .capa { max-width: 1160px; margin: 0 auto; padding: 46px 22px 70px; }
+  .marca { display: flex; align-items: center; gap: 14px; margin-bottom: 34px; }
+  .marca .cubo {
+    width: 46px; height: 46px; border-radius: 11px; flex: none; font-size: 22px;
+    background: linear-gradient(135deg, var(--papel-400), var(--papel-600));
+    display: grid; place-items: center;
+  }
+  .marca h1 { font-size: 21px; }
+  .marca small { color: rgba(255,255,255,.5); font-size: 12.5px; }
+
+  .intro { max-width: 720px; margin-bottom: 34px; }
+  .intro h2 { font-size: 30px; letter-spacing: -.02em; margin-bottom: 12px; line-height: 1.18; }
+  .intro p { color: rgba(255,255,255,.66); font-size: 15px; line-height: 1.6; }
+  .intro b { color: var(--papel-400); font-weight: 650; }
+
+  .disp { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 16px; }
+  .cd {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 16px; padding: 22px; text-decoration: none; color: #fff;
+    display: flex; flex-direction: column; gap: 12px; transition: .16s ease;
+  }
+  .cd:hover { background: rgba(255,255,255,.1); border-color: var(--papel-400); transform: translateY(-2px); text-decoration: none; }
+  .cd .ic { font-size: 30px; line-height: 1; }
+  .cd h3 { font-size: 16.5px; }
+  .cd p { color: rgba(255,255,255,.6); font-size: 13px; line-height: 1.55; margin: 0; flex: 1; }
+  .cd .quem { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 700; color: var(--papel-400); }
+  .cd .abre { font-size: 12.5px; font-weight: 650; color: var(--azul-300); display: flex; align-items: center; gap: 6px; }
+
+  .secao { margin-top: 46px; }
+  .secao > h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.4); margin-bottom: 14px; }
+
+  .mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; }
+  .md {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 11px; padding: 13px 15px; text-decoration: none; color: #fff;
+    display: flex; align-items: center; gap: 11px; font-size: 13.5px; font-weight: 600; transition: .14s;
+  }
+  .md:hover { background: rgba(255,255,255,.09); text-decoration: none; border-color: rgba(255,255,255,.2); }
+  .md .ic { font-size: 17px; opacity: .8; flex: none; }
+  .md small { display: block; font-size: 11px; font-weight: 500; color: rgba(255,255,255,.45); }
+
+  .nota {
+    margin-top: 44px; padding: 18px 20px; border-radius: 12px;
+    background: rgba(201,134,11,.1); border: 1px solid rgba(201,134,11,.3);
+    font-size: 13px; color: #f0d79a; line-height: 1.6;
+  }
+  .nota b { color: #f5c46a; }
+  .nota a { color: #f5c46a; text-decoration: underline; }
+
+  .pe { margin-top: 36px; font-size: 12px; color: rgba(255,255,255,.35); line-height: 1.7; }
+  .pe code { background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 4px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="capa">
+
+  <div class="marca">
+    <div class="cubo">📦</div>
+    <div>
+      <h1>ERP Cartonagem</h1>
+      <small>Protótipo navegável · substituição do Sistema Cartonagem (PcBoot)</small>
+    </div>
+  </div>
+
+  <div class="intro">
+    <h2>Quatro dispositivos, um sistema.</h2>
+    <p>
+      O mesmo ERP aparece de forma diferente conforme onde está sendo usado: no <b>escritório</b> com mouse e
+      teclado, no <b>tablet de máquina</b> com botão grande e três toques, no <b>tablet do vendedor</b>
+      funcionando sem sinal, e no <b>painel da fábrica</b> visto de longe. Escolha por onde entrar.
+    </p>
+  </div>
+
+  <div class="disp">
+
+    <a class="cd" href="escritorio.html">
+      <div class="ic">🖥️</div>
+      <div class="quem">Escritório · rede local</div>
+      <h3>ERP completo</h3>
+      <p>
+        Engenharia (F.T. com cálculo de caixa ao vivo), PCP e carga-máquina, comercial, amostras,
+        compra de chapa, expedição, fiscal e financeiro.
+      </p>
+      <div class="abre">Abrir →</div>
+    </a>
+
+    <a class="cd" href="maquina.html">
+      <div class="ic">🏭</div>
+      <div class="quem">Piso de fábrica · tablet</div>
+      <h3>Ficha de Serviço</h3>
+      <p>
+        Apontamento em três toques, cronômetro de setup e produção, motivo de parada e refugo por botão,
+        controle homem-máquina. Inclui os postos de conferência e expedição.
+      </p>
+      <div class="abre">Abrir →</div>
+    </a>
+
+    <a class="cd" href="campo.html">
+      <div class="ic">🚗</div>
+      <div class="quem">Rua · tablet do vendedor</div>
+      <h3>App de campo</h3>
+      <p>
+        Carteira de clientes, situação dos pedidos na fábrica e coleta de <b>assinatura do cliente</b> na
+        amostra. Funciona offline — teste ligando o modo avião na própria tela.
+      </p>
+      <div class="abre">Abrir →</div>
+    </a>
+
+    <a class="cd" href="painel.html">
+      <div class="ic">📺</div>
+      <div class="quem">Galpão · TV</div>
+      <h3>Painel de fábrica</h3>
+      <p>
+        OEE por máquina, situação de cada posto, pedidos do dia e fila de amostras. Feito para ser lido
+        a cinco metros de distância.
+      </p>
+      <div class="abre">Abrir →</div>
+    </a>
+
+  </div>
+
+  <div class="secao">
+    <h3>Atalhos para os módulos do escritório</h3>
+    <div class="mods">
+      <a class="md" href="escritorio.html#engenharia/92281"><span class="ic">📐</span>
+        <span>Engenharia<small>F.T. 92281 · cálculo ao vivo</small></span></a>
+      <a class="md" href="escritorio.html#pcp"><span class="ic">📅</span>
+        <span>PCP<small>carga-máquina e O.F.</small></span></a>
+      <a class="md" href="escritorio.html#chapa"><span class="ic">🧾</span>
+        <span>Compra de chapa<small>necessidade por O.F.</small></span></a>
+      <a class="md" href="escritorio.html#amostras"><span class="ic">🧪</span>
+        <span>Amostras<small>fila por idade</small></span></a>
+      <a class="md" href="escritorio.html#comercial"><span class="ic">💼</span>
+        <span>Comercial<small>orçamento e pedido</small></span></a>
+      <a class="md" href="escritorio.html#rastreamento"><span class="ic">🔎</span>
+        <span>Rastreamento<small>onde está o pedido</small></span></a>
+      <a class="md" href="escritorio.html#producao"><span class="ic">⚙️</span>
+        <span>Produção<small>fichas de serviço</small></span></a>
+      <a class="md" href="escritorio.html#expedicao"><span class="ic">🚚</span>
+        <span>Expedição<small>volumes e carga</small></span></a>
+      <a class="md" href="escritorio.html#fiscal"><span class="ic">🧮</span>
+        <span>Fiscal<small>NF-e e reforma tributária</small></span></a>
+      <a class="md" href="escritorio.html#financeiro"><span class="ic">💰</span>
+        <span>Financeiro<small>títulos e conciliação</small></span></a>
+      <a class="md" href="escritorio.html#clientes"><span class="ic">🏢</span>
+        <span>Clientes<small>cadastro completo</small></span></a>
+      <a class="md" href="escritorio.html#sincronizacao"><span class="ic">🔄</span>
+        <span>Sincronização<small>nós, fila e conflitos</small></span></a>
+    </div>
+  </div>
+
+  <div class="secao">
+    <h3>Atalhos para os postos do tablet de fábrica</h3>
+    <div class="mods">
+      <a class="md" href="maquina.html?posto=m1"><span class="ic">🖨</span>
+        <span>Impressora Flexo 01<small>travada por falta de chapa</small></span></a>
+      <a class="md" href="maquina.html?posto=m2"><span class="ic">📏</span>
+        <span>Riscador 02<small>produzindo</small></span></a>
+      <a class="md" href="maquina.html?posto=m3"><span class="ic">✂️</span>
+        <span>Corte e Vinco 01<small>apontar, parar, refugar</small></span></a>
+      <a class="md" href="maquina.html?posto=m5"><span class="ic">🧴</span>
+        <span>Coladeira 02<small>aguardando fila</small></span></a>
+      <a class="md" href="maquina.html?posto=m6"><span class="ic">🔍</span>
+        <span>Conferência<small>checklist tirado da F.T.</small></span></a>
+      <a class="md" href="maquina.html?posto=m7"><span class="ic">🚚</span>
+        <span>Expedição<small>embarque por QR de volume</small></span></a>
+    </div>
+  </div>
+
+  <div class="nota">
+    <b>Este é um protótipo de interface, não o sistema.</b> Os dados são fictícios e nada é gravado —
+    ao recarregar a página tudo volta ao estado inicial. Os números, clientes e medidas foram copiados dos
+    prints do PcBoot coletados no levantamento (F.T. 92281, estilo 0201-B, riscador 122/116/122 = 360)
+    justamente para que a fábrica reconheça o que está vendo.
+    <br><br>
+    Duas coisas aqui <b>funcionam de verdade</b>, porque são o coração técnico do projeto: o
+    <b>motor de fórmulas de caixa</b> (mude comprimento, largura ou altura na tela de Engenharia e veja o
+    riscador, a impressão e o plano de corte recalcularem) e a <b>captura de assinatura</b> no app de campo.
+  </div>
+
+  <div class="pe">
+    Documentação do projeto: <code>docs/01-ARQUITETURA.md</code> · <code>docs/02-ENGENHARIA.md</code> ·
+    <code>docs/03-BANCO-DE-DADOS.md</code><br>
+    Protótipo estático — HTML, CSS e JavaScript sem dependência externa e sem etapa de build.
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,165 @@
+ERP Cartonagem — Modelo de Dados
+Tabelas, relações, associações e diagrama entidade-relacionamento (visão macro)
+
+1. Diagrama ER — visão macro
+faz
+
+contém
+
+referencia
+
+gera
+
+registra
+
+executa em
+
+consome
+
+referencia
+
+movimenta
+
+movimenta
+
+fatura
+
+gera
+
+gera
+
+fornece
+
+registra
+
+possui
+
+CLIENTE
+
+PEDIDO_VENDA
+
+ITEM_PEDIDO
+
+PRODUTO
+
+ORDEM_PRODUCAO
+
+APONTAMENTO_PRODUCAO
+
+MAQUINA
+
+CONSUMO_MATERIA_PRIMA
+
+MATERIA_PRIMA
+
+MOVIMENTO_ESTOQUE
+
+NOTA_FISCAL
+
+CONTA_RECEBER
+
+FORNECEDOR
+
+CONTA_PAGAR
+
+USUARIO
+
+TENANT
+
+2. Cadastros base
+Módulo: Administrativo
+Tabela	Campo	Tipo	Observação
+Tenant	Id	uuid	Chave primária
+RazaoSocial	string	
+CNPJ	string	Único
+PlanoContratado	enum	Básico/Pro/Enterprise (para SaaS)
+Ativo	bool	
+Usuario	Id	uuid	
+TenantId	uuid	FK → Tenant
+Nome / Email	string	
+Papel	enum	Admin, PCP, Financeiro, Vendas, Operador
+Ativo	bool	
+Cliente	Id	uuid	
+TenantId	uuid	FK → Tenant
+RazaoSocial / CNPJ-CPF	string	
+LimiteCredito	decimal	
+Fornecedor	Id	uuid	
+TenantId	uuid	FK → Tenant
+RazaoSocial / CNPJ	string	
+PrazoEntregaMedioDias	int	
+Produto e Matéria-Prima
+Tabela	Campo	Tipo	Observação
+Produto	Id	uuid	Caixa/embalagem acabada
+Codigo / Descricao	string	
+TipoOnda	enum	Simples, Dupla, Tripla
+Dimensoes	jsonb	Comprimento, largura, altura (mm)
+PrecoBase	decimal	Usado na formação de preço de venda
+EstoqueMinimo	int	
+MateriaPrima	Id	uuid	Papelão, chapas, tinta, cola
+FornecedorId	uuid	FK → Fornecedor
+Tipo	enum	Papelão, Tinta, Cola, Outro
+Gramatura	decimal	Específico de papelão
+CustoUnitario	decimal	
+3. Comercial (Vendas)
+Módulo: Administrativo
+Tabela	Campo	Tipo	Observação
+PedidoVenda	Id	uuid	
+TenantId / ClienteId	uuid	FK → Tenant, Cliente
+Status	enum	Orçamento, Aprovado, Em Produção, Faturado, Cancelado
+DataPedido / DataEntregaPrevista	date	
+ValorTotal	decimal	Calculado a partir dos itens
+CondicaoPagamento	string	
+ItemPedido	Id	uuid	
+PedidoVendaId / ProdutoId	uuid	FK → PedidoVenda, Produto
+Quantidade	int	
+PrecoUnitario	decimal	Pode divergir do PrecoBase (negociação)
+EspecificacoesTecnicas	jsonb	Impressão, corte especial, etc.
+4. Produção / PCP
+Módulo: Produção
+Tabela	Campo	Tipo	Observação
+OrdemProducao	Id	uuid	
+ItemPedidoId / MaquinaId	uuid	FK → ItemPedido, Maquina
+Status	enum	Aguardando, Em Produção, Concluída, Parada
+DataInicioPrevista / Real	datetime	Base da "carga-máquina"
+QuantidadeProduzida	int	
+LoteRastreabilidade	string	Chave do "Rastro DNA"
+Maquina	Id	uuid	
+Nome / Tipo	string	Onduladeira, Impressora, Coladeira...
+CapacidadeHora	decimal	Usado no cálculo de carga-máquina
+Status	enum	Disponível, Em Uso, Manutenção
+ApontamentoProducao	Id	uuid	
+OrdemProducaoId / UsuarioId	uuid	FK → OrdemProducao, Usuario
+DataHora / Evento	datetime/enum	Início, Pausa, Retomada, Fim, Refugo
+QuantidadeRefugo	int	
+ConsumoMateriaPrima	Id	uuid	
+OrdemProducaoId / MateriaPrimaId	uuid	FK → OrdemProducao, MateriaPrima
+QuantidadeConsumida	decimal	
+5. Estoque
+Tabela	Campo	Tipo	Observação
+MovimentoEstoque	Id	uuid	
+ProdutoId ou MateriaPrimaId	uuid	Um dos dois, nunca ambos (constraint)
+Tipo	enum	Entrada, Saída, Ajuste, Transferência
+Quantidade	decimal	
+OrigemReferenciaId	uuid	Aponta para OP, Pedido ou Nota Fiscal de origem
+DataHora	datetime	
+6. Financeiro
+Módulo: Financeiro
+Tabela	Campo	Tipo	Observação
+NotaFiscal	Id	uuid	
+PedidoVendaId	uuid	FK → PedidoVenda
+NumeroNFe / ChaveAcesso	string	Integração com SEFAZ
+ValorTotal	decimal	
+ContaReceber	Id	uuid	
+NotaFiscalId	uuid	FK → NotaFiscal
+Parcela / Valor / Vencimento	int/decimal/date	
+Status	enum	Aberta, Paga, Vencida
+DataConciliacao	date	Preenchido pelo módulo "Organizer"
+ContaPagar	Id	uuid	
+FornecedorId	uuid	FK → Fornecedor
+Valor / Vencimento	decimal/date	
+Status	enum	Aberta, Paga, Vencida
+7. Convenções e integridade referencial
+Toda tabela transacional carrega TenantId (multi-tenant) + CriadoEm/AtualizadoEm/CriadoPor para auditoria
+Chaves primárias como uuid (facilita merge de dados entre servidor local e nuvem sem colisão de IDs)
+Exclusão lógica (Ativo/DeletedAt) em vez de exclusão física em tabelas com histórico financeiro/fiscal
+Índices compostos em (TenantId, Status, DataCriacao) nas tabelas mais consultadas (PedidoVenda, OrdemProducao) para performance de listagens filtradas

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ERP Cartonagem — Tablet de fábrica</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/tablet.css">
+</head>
+<body class="fabrica">
+
+<div class="fab">
+
+  <header class="fab-topo">
+    <div class="fab-posto">
+      <div>
+        <div class="rot">Posto de trabalho</div>
+        <select id="selPosto"></select>
+      </div>
+    </div>
+
+    <div class="fab-topo-dir">
+      <button class="fab-rede online" id="btRede" title="Simular perda de rede">
+        <i class="ponto"></i><span id="txtRede">Conectado</span>
+      </button>
+      <div class="fab-fila oculto" id="chipFila">0 na fila de envio</div>
+      <div class="fab-relogio" id="relogio">--:--:--</div>
+      <div class="fab-operador" id="opTopo"></div>
+    </div>
+  </header>
+
+  <div class="fab-corpo">
+    <div class="fab-principal" id="principal"></div>
+    <aside class="fab-fila-lateral" id="filaLateral"></aside>
+  </div>
+
+</div>
+
+<script src="js/comum.js"></script>
+<script src="js/dados.js"></script>
+<script src="js/maquina.js"></script>
+</body>
+</html>

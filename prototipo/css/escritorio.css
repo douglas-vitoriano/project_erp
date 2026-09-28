@@ -1,0 +1,152 @@
+/* Shell do ERP no escritório: navegador em desktop, mouse e teclado */
+
+.app {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+/* ---------------------------------------------------------------- topo */
+.topo {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 18px; height: 52px;
+  background: var(--azul-900); color: #fff;
+}
+.topo-marca { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; letter-spacing: -.01em; }
+.topo-marca .cubo {
+  width: 26px; height: 26px; border-radius: 6px; flex: none;
+  background: linear-gradient(135deg, var(--papel-400), var(--papel-600));
+  display: grid; place-items: center; font-size: 13px;
+}
+.topo-marca small { display: block; font-weight: 500; font-size: 10.5px; opacity: .6; letter-spacing: .04em; }
+.topo-empresa {
+  margin-left: 6px; padding: 4px 10px; border-radius: 6px;
+  background: rgba(255,255,255,.08); font-size: 12px; display: flex; align-items: center; gap: 7px;
+}
+.topo-busca { flex: 1; max-width: 400px; position: relative; }
+.topo-busca input {
+  width: 100%; padding: 7px 12px 7px 32px; border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08);
+  color: #fff; font-family: inherit; font-size: 13px;
+}
+.topo-busca input::placeholder { color: rgba(255,255,255,.45); }
+.topo-busca input:focus { outline: none; background: rgba(255,255,255,.14); border-color: var(--azul-300); }
+.topo-busca .lupa { position: absolute; left: 10px; top: 7px; opacity: .5; font-size: 13px; }
+.topo-dir { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.sinc {
+  display: flex; align-items: center; gap: 7px; font-size: 11.5px;
+  padding: 4px 10px; border-radius: 999px; background: rgba(31,143,82,.22); color: #7fe0a8;
+}
+.sinc .ponto { animation: pulsa 2.4s infinite; }
+@keyframes pulsa { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--azul-500);
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- lateral */
+.lateral {
+  background: var(--azul-800); color: #fff; overflow-y: auto; padding: 12px 0 30px;
+}
+.lateral-grupo { padding: 14px 16px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: rgba(255,255,255,.34); }
+.lateral a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; color: rgba(255,255,255,.76); font-size: 13px; font-weight: 500;
+  border-left: 3px solid transparent; text-decoration: none;
+}
+.lateral a:hover { background: rgba(255,255,255,.06); color: #fff; text-decoration: none; }
+.lateral a.ativo { background: rgba(255,255,255,.1); color: #fff; border-left-color: var(--papel-400); font-weight: 650; }
+.lateral a .ic { width: 17px; text-align: center; flex: none; opacity: .85; font-size: 13px; }
+.lateral a .contador {
+  margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 1px 6px;
+  border-radius: 999px; background: var(--erro); color: #fff;
+}
+.lateral a .contador.neutro { background: rgba(255,255,255,.16); }
+
+/* ---------------------------------------------------------------- conteúdo */
+.conteudo { overflow-y: auto; padding: 20px 24px 40px; }
+.conteudo > .faixa-proto:first-child { margin: -20px -24px 18px; }
+.pagina-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.trilha { font-size: 11.5px; color: var(--texto-3); margin-bottom: 4px; }
+.pagina-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- F.T. */
+.ft-cab {
+  display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+  background: linear-gradient(100deg, var(--azul-800), var(--azul-600));
+  color: #fff; flex-wrap: wrap;
+}
+.ft-num { font-family: var(--mono); font-size: 25px; font-weight: 700; letter-spacing: -.02em; }
+.ft-cab .sep { width: 1px; height: 32px; background: rgba(255,255,255,.2); }
+.ft-cab .dado-rot { color: rgba(255,255,255,.55); }
+.ft-cab .dado-val { color: #fff; }
+
+.plano { background: var(--papel-100); border: 1px solid var(--papel-200); border-radius: var(--raio); padding: 12px; overflow: auto; }
+.plano svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+.medidas-linha { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.medidas-linha .cx {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 650;
+  min-width: 52px; text-align: center; padding: 5px 7px;
+  border: 1px solid var(--borda-forte); border-radius: 5px; background: var(--superficie);
+}
+.medidas-linha .cx.zero { color: var(--texto-3); background: var(--superficie-2); }
+.medidas-linha .x { color: var(--texto-3); font-size: 11px; }
+.medidas-linha .tot {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  padding: 5px 10px; border-radius: 5px; background: var(--azul-700); color: #fff; margin-left: 4px;
+}
+
+/* ---------------------------------------------------------------- carga-máquina */
+.gantt { display: flex; flex-direction: column; gap: 8px; }
+.gantt-linha { display: grid; grid-template-columns: 170px 1fr; gap: 12px; align-items: center; }
+.gantt-maq { font-size: 12.5px; font-weight: 650; }
+.gantt-maq small { display: block; font-weight: 500; color: var(--texto-3); font-size: 11px; }
+.gantt-trilha { position: relative; height: 34px; background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 6px; overflow: hidden; }
+.gantt-bloco {
+  position: absolute; top: 3px; bottom: 3px; border-radius: 4px;
+  display: flex; align-items: center; padding: 0 7px; font-size: 10.5px; font-weight: 650;
+  color: #fff; overflow: hidden; white-space: nowrap; cursor: pointer;
+}
+.gantt-bloco:hover { filter: brightness(1.12); }
+.gantt-bloco.producao { background: var(--azul-600); }
+.gantt-bloco.setup { background: var(--alerta); }
+.gantt-bloco.aguardando { background: var(--neutro); }
+.gantt-bloco.chapa { background: repeating-linear-gradient(45deg, #c0392b, #c0392b 6px, #a53122 6px, #a53122 12px); }
+.gantt-horas { display: grid; grid-template-columns: 170px 1fr; gap: 12px; font-size: 10.5px; color: var(--texto-3); }
+.gantt-horas .escala { display: flex; justify-content: space-between; }
+
+/* ---------------------------------------------------------------- fluxo do pedido */
+.fluxo { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
+.fluxo-passo {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 0 4px; min-width: 96px; position: relative;
+}
+.fluxo-bola {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; border: 2px solid var(--borda-forte);
+  background: var(--superficie); color: var(--texto-3); z-index: 1;
+}
+.fluxo-passo.feito .fluxo-bola { background: var(--ok); border-color: var(--ok); color: #fff; }
+.fluxo-passo.atual .fluxo-bola { background: var(--azul-600); border-color: var(--azul-600); color: #fff; box-shadow: 0 0 0 4px var(--azul-100); }
+.fluxo-passo.travado .fluxo-bola { background: var(--erro); border-color: var(--erro); color: #fff; }
+.fluxo-rot { font-size: 11px; font-weight: 650; text-align: center; }
+.fluxo-sub { font-size: 10px; color: var(--texto-3); text-align: center; }
+.fluxo-ligacao { flex: 1; height: 2px; background: var(--borda-forte); min-width: 16px; margin-bottom: 26px; }
+.fluxo-ligacao.feito { background: var(--ok); }
+
+/* ---------------------------------------------------------------- misc */
+.pilha-rev { display: flex; flex-direction: column; }
+.pilha-rev > div { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--borda); font-size: 12.5px; }
+.pilha-rev > div:last-child { border-bottom: none; }
+.de-para .de { color: var(--erro); text-decoration: line-through; }
+.de-para .para { color: var(--ok); font-weight: 650; }
+
+.faixa-idade { display: grid; grid-template-columns: 62px 1fr 46px; gap: 10px; align-items: center; font-size: 12px; }
+
+@media (max-width: 980px) {
+  .app { grid-template-columns: 1fr; }
+  .lateral { display: none; }
+}

@@ -1,0 +1,31 @@
+# Evidência do levantamento — NÃO versionar.
+# Os prints, PDFs e planilhas exportadas do Sistema Cartonagem (PcBoot) contêm dados
+# reais de clientes: razão social, CNPJ, contatos, telefones e preços praticados.
+# Este repositório é público, então a evidência fica apenas na máquina local.
+# O que foi extraído dela está descrito, já anonimizado, em docs/.
+Print PcBoot/
+
+# Saída do script de descoberta do banco legado: contém caminhos, aliases,
+# strings de conexão e nomes de máquina do ambiente real.
+etl/descoberta/saida/
+*-descoberta-*.txt
+*-descoberta-*.json
+
+# Sistema operacional
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*~
+
+# Temporários e backups
+*.tmp
+*.bak
+*.log
+~$*

@@ -1,0 +1,191 @@
+/* Tablet de fábrica: toque grosso, alto contraste, legível com luva e poeira de papel.
+   Regra de projeto: 3 toques para apontar. Nada de digitação no fluxo principal. */
+
+body.fabrica {
+  background: #0d1119;
+  color: #eef2f8;
+  font-size: 16px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.fab {
+  display: grid;
+  grid-template-rows: 62px 1fr;
+  height: 100vh;
+}
+
+/* a faixa de protótipo é injetada antes do app e desconta da altura útil */
+body.fabrica > .faixa-proto { height: 29px; }
+body.fabrica > .faixa-proto ~ .fab { height: calc(100vh - 29px); }
+
+/* ---------------------------------------------------------------- topo do posto */
+.fab-topo {
+  display: flex; align-items: center; gap: 16px; padding: 0 18px;
+  background: #151c28; border-bottom: 2px solid #222d40;
+}
+.fab-posto { display: flex; align-items: center; gap: 12px; }
+.fab-posto select {
+  background: #222d40; color: #fff; border: 1px solid #33415c;
+  border-radius: 8px; padding: 9px 12px; font-size: 16px; font-weight: 650; font-family: inherit;
+}
+.fab-posto .rot { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #7c8aa3; font-weight: 700; }
+.fab-topo-dir { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+
+.fab-rede {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650;
+  padding: 7px 14px; border-radius: 999px;
+  border: none; font-family: inherit; cursor: pointer;
+}
+.fab-rede.online { background: rgba(31,143,82,.2); color: #6fdd9d; }
+.fab-rede.offline { background: rgba(201,134,11,.22); color: #f5c46a; }
+.fab-fila {
+  font-size: 13px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+  background: rgba(201,134,11,.22); color: #f5c46a;
+}
+.fab-operador { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.fab-operador .foto {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--azul-500);
+  display: grid; place-items: center; font-weight: 700; font-size: 13px;
+}
+.fab-relogio { font-family: var(--mono); font-size: 19px; font-weight: 700; color: #b9c6dd; }
+
+/* ---------------------------------------------------------------- corpo */
+.fab-corpo { display: grid; grid-template-columns: 1fr 340px; overflow: hidden; }
+.fab-principal { padding: 18px; overflow-y: auto; }
+.fab-fila-lateral { background: #121824; border-left: 2px solid #222d40; padding: 14px; overflow-y: auto; }
+
+/* ---------------------------------------------------------------- cartão da FS */
+.fs {
+  background: #1a2230; border: 2px solid #2b3850; border-radius: 16px;
+  overflow: hidden; margin-bottom: 16px;
+}
+.fs-cab {
+  padding: 16px 20px; background: linear-gradient(100deg, #1f4287, #2b5cb8);
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.fs-num { font-family: var(--mono); font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+.fs-cab .rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.62); font-weight: 700; }
+.fs-cab .val { font-size: 16px; font-weight: 650; }
+.fs-corpo { padding: 20px; }
+
+.fs-estado {
+  display: inline-flex; align-items: center; gap: 9px; padding: 8px 18px;
+  border-radius: 999px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.fs-estado.aguardando { background: #2d3748; color: #a7b5cc; }
+.fs-estado.setup { background: rgba(201,134,11,.25); color: #f5c46a; }
+.fs-estado.producao { background: rgba(31,143,82,.25); color: #6fdd9d; }
+.fs-estado.pausada { background: rgba(201,134,11,.25); color: #f5c46a; }
+.fs-estado.parada { background: rgba(192,57,43,.25); color: #f19288; }
+.fs-estado.concluida { background: rgba(43,92,184,.28); color: #9fc0f5; }
+
+/* ---------------------------------------------------------------- números grandes */
+.fab-nums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0; }
+.fab-num { background: #131a26; border: 1px solid #263145; border-radius: 12px; padding: 14px 16px; }
+.fab-num .rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: #7c8aa3; font-weight: 700; }
+.fab-num .val { font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1.1; margin-top: 4px; }
+.fab-num .sub { font-size: 12px; color: #7c8aa3; margin-top: 2px; }
+.fab-num.ok .val { color: #6fdd9d; }
+.fab-num.alerta .val { color: #f5c46a; }
+.fab-num.erro .val { color: #f19288; }
+.fab-num.crono .val { font-size: 34px; letter-spacing: -.02em; }
+
+/* ---------------------------------------------------------------- dados técnicos */
+.fab-tec { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; background: #131a26; border: 1px solid #263145; border-radius: 12px; padding: 16px; }
+.fab-tec .rot { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #7c8aa3; font-weight: 700; }
+.fab-tec .val { font-size: 15px; font-weight: 650; margin-top: 2px; }
+
+.fab-medidas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.fab-medidas .cx {
+  font-family: var(--mono); font-size: 15px; font-weight: 700; padding: 7px 11px;
+  background: #222d40; border: 1px solid #33415c; border-radius: 7px; min-width: 56px; text-align: center;
+}
+.fab-medidas .tot { background: var(--azul-600); border-color: var(--azul-600); }
+
+/* ---------------------------------------------------------------- botões de apontamento */
+.fab-acoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 20px; }
+.bt-fab {
+  min-height: 92px; border-radius: 14px; border: 2px solid #33415c;
+  background: #222d40; color: #fff; font-family: inherit;
+  font-size: 18px; font-weight: 700; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  transition: .1s ease; padding: 12px;
+}
+.bt-fab .ic { font-size: 26px; line-height: 1; }
+.bt-fab small { font-size: 11.5px; font-weight: 500; opacity: .7; }
+.bt-fab:active { transform: scale(.97); }
+.bt-fab.iniciar { background: var(--ok); border-color: #2aa763; }
+.bt-fab.pausar { background: var(--alerta); border-color: #e09a1b; }
+.bt-fab.parar { background: var(--erro); border-color: #d34433; }
+.bt-fab.refugo { background: #6b4fa8; border-color: #7f60c2; }
+.bt-fab.finalizar { background: var(--azul-600); border-color: var(--azul-500); }
+.bt-fab:disabled { opacity: .3; cursor: not-allowed; }
+.bt-fab:disabled:active { transform: none; }
+
+/* ---------------------------------------------------------------- fila lateral */
+.fila-tit { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #7c8aa3; font-weight: 700; margin-bottom: 10px; }
+.fila-item {
+  background: #1a2230; border: 1px solid #263145; border-left: 4px solid #33415c;
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+}
+.fila-item:active { transform: scale(.99); }
+.fila-item.ativa { border-left-color: var(--ok); background: #1e2a3c; }
+.fila-item.chapa { border-left-color: var(--erro); }
+.fila-item .n { font-family: var(--mono); font-size: 17px; font-weight: 700; }
+.fila-item .r { font-size: 12.5px; color: #a7b5cc; margin-top: 2px; line-height: 1.35; }
+.fila-item .q { font-family: var(--mono); font-size: 12.5px; color: #7c8aa3; margin-top: 5px; }
+
+/* ---------------------------------------------------------------- teclado numérico */
+.teclado { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 320px; margin: 0 auto; }
+.teclado button {
+  min-height: 62px; font-size: 24px; font-weight: 700; font-family: var(--mono);
+  background: #222d40; color: #fff; border: 2px solid #33415c; border-radius: 12px; cursor: pointer;
+}
+.teclado button:active { transform: scale(.96); background: #2b3850; }
+.teclado button.wide { grid-column: span 2; }
+.visor {
+  font-family: var(--mono); font-size: 40px; font-weight: 700; text-align: center;
+  background: #0d1119; border: 2px solid #33415c; border-radius: 12px; padding: 14px;
+  margin: 0 auto 16px; max-width: 320px;
+}
+
+/* ---------------------------------------------------------------- motivos */
+.motivos { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.bt-motivo {
+  min-height: 78px; border-radius: 12px; border: 2px solid #33415c; background: #222d40;
+  color: #fff; font-family: inherit; font-size: 15px; font-weight: 650; cursor: pointer; padding: 12px;
+  display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; text-align: center;
+}
+.bt-motivo small { font-size: 10.5px; opacity: .6; font-weight: 500; }
+.bt-motivo:active { transform: scale(.97); }
+
+/* ---------------------------------------------------------------- modal de fábrica */
+.fab-cortina { position: fixed; inset: 0; background: rgba(5,8,13,.82); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 600; }
+.fab-modal { background: #151c28; border: 2px solid #2b3850; border-radius: 18px; width: 100%; max-width: 660px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.fab-modal-cab { padding: 18px 22px; border-bottom: 2px solid #222d40; display: flex; align-items: center; justify-content: space-between; }
+.fab-modal-cab h2 { font-size: 20px; }
+.fab-modal-corpo { padding: 22px; overflow-y: auto; }
+.fab-modal-pe { padding: 16px 22px; border-top: 2px solid #222d40; display: flex; gap: 12px; }
+.fab-modal-pe .bt-fab { min-height: 64px; flex: 1; font-size: 16px; }
+
+/* ---------------------------------------------------------------- conferência / expedição */
+.chk-lista { display: flex; flex-direction: column; gap: 10px; }
+.chk {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  background: #1a2230; border: 2px solid #263145; border-radius: 12px; cursor: pointer;
+}
+.chk .caixa {
+  width: 30px; height: 30px; border-radius: 7px; border: 2px solid #4a5a78; flex: none;
+  display: grid; place-items: center; font-size: 18px; font-weight: 700;
+}
+.chk.marcado { border-color: var(--ok); background: rgba(31,143,82,.12); }
+.chk.marcado .caixa { background: var(--ok); border-color: var(--ok); }
+.chk .txt { font-size: 15px; font-weight: 600; }
+.chk .txt small { display: block; font-size: 12px; color: #7c8aa3; font-weight: 500; }
+
+@media (max-width: 1000px) {
+  .fab-corpo { grid-template-columns: 1fr; }
+  .fab-fila-lateral { display: none; }
+  .fab-nums { grid-template-columns: repeat(2, 1fr); }
+}

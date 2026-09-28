@@ -1,0 +1,170 @@
+/* Tablet do vendedor: offline-first, uso em rua, uma mão, tela pequena.
+   A tela sempre diz três coisas: quando sincronizou, o que está pendente e se o dado pode estar velho. */
+
+body.campo { background: #eef1f6; overflow: hidden; }
+
+.cmp {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  height: 100vh;
+  max-width: 1180px;
+  margin: 0 auto;
+  background: var(--superficie);
+  box-shadow: 0 0 40px rgba(11,27,58,.1);
+}
+
+/* a faixa de protótipo é injetada antes do app e desconta da altura útil */
+body.campo > .faixa-proto ~ .cmp { height: calc(100vh - 29px); }
+
+/* ---------------------------------------------------------------- topo */
+.cmp-topo {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--azul-800); color: #fff;
+}
+.cmp-topo .voltar {
+  background: rgba(255,255,255,.1); border: none; color: #fff; font-size: 19px;
+  width: 38px; height: 38px; border-radius: 10px; cursor: pointer; flex: none;
+}
+.cmp-topo .voltar:active { background: rgba(255,255,255,.2); }
+.cmp-tit { font-size: 16px; font-weight: 650; line-height: 1.2; min-width: 0; }
+.cmp-tit small { display: block; font-size: 11.5px; opacity: .6; font-weight: 500; }
+.cmp-topo-dir { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* ---------------------------------------------------------------- barra de sincronização */
+.cmp-sinc {
+  display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+  font-size: 12px; font-weight: 600; flex-wrap: wrap;
+}
+.cmp-sinc.online { background: var(--ok-fraco); color: #12633a; }
+.cmp-sinc.offline { background: var(--alerta-fraco); color: #7a5307; }
+.cmp-sinc .dir { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.cmp-sinc .pend {
+  background: var(--alerta); color: #fff; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+}
+.interruptor {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-size: 11.5px; font-weight: 650; user-select: none;
+}
+.interruptor input { display: none; }
+.interruptor .trilho {
+  width: 38px; height: 21px; border-radius: 999px; background: var(--borda-forte);
+  position: relative; transition: .18s; flex: none;
+}
+.interruptor .trilho::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px;
+  border-radius: 50%; background: #fff; transition: .18s; box-shadow: 0 1px 3px rgba(0,0,0,.28);
+}
+.interruptor input:checked + .trilho { background: var(--alerta); }
+.interruptor input:checked + .trilho::after { transform: translateX(17px); }
+
+/* ---------------------------------------------------------------- corpo */
+.cmp-corpo { overflow-y: auto; padding: 14px 16px 24px; -webkit-overflow-scrolling: touch; }
+
+/* ---------------------------------------------------------------- itens de lista */
+.cmp-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px;
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: 12px; margin-bottom: 9px; cursor: pointer;
+}
+.cmp-item:active { background: var(--azul-100); }
+.cmp-item .inicial {
+  width: 42px; height: 42px; border-radius: 11px; flex: none;
+  display: grid; place-items: center; font-weight: 700; font-size: 15px;
+  background: var(--azul-100); color: var(--azul-700);
+}
+.cmp-item .corpo { flex: 1; min-width: 0; }
+.cmp-item .nome { font-size: 14.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-item .sub { font-size: 12px; color: var(--texto-2); margin-top: 1px; display: flex; gap: 8px; flex-wrap: wrap; }
+.cmp-item .seta { color: var(--texto-3); font-size: 17px; flex: none; }
+
+/* ---------------------------------------------------------------- abas inferiores */
+.cmp-menu {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--borda); background: var(--superficie);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.cmp-menu button {
+  border: none; background: none; padding: 9px 4px 11px; cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  color: var(--texto-3); font-size: 10.5px; font-weight: 650; position: relative;
+}
+.cmp-menu button .ic { font-size: 20px; line-height: 1; }
+.cmp-menu button.ativo { color: var(--azul-600); }
+.cmp-menu button.ativo::before {
+  content: ''; position: absolute; top: 0; left: 22%; right: 22%; height: 3px;
+  background: var(--azul-600); border-radius: 0 0 3px 3px;
+}
+.cmp-menu button .bolha {
+  position: absolute; top: 6px; right: 50%; transform: translateX(22px);
+  background: var(--erro); color: #fff; font-size: 9.5px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 999px; display: grid; place-items: center; padding: 0 4px;
+}
+
+/* ---------------------------------------------------------------- assinatura */
+.assin-area {
+  border: 2px dashed var(--borda-forte); border-radius: 12px; background: var(--superficie);
+  position: relative; touch-action: none; overflow: hidden;
+}
+.assin-area canvas { display: block; width: 100%; height: 210px; cursor: crosshair; }
+.assin-linha {
+  position: absolute; left: 22px; right: 22px; bottom: 44px;
+  border-bottom: 1px solid var(--borda-forte); pointer-events: none;
+}
+.assin-dica {
+  position: absolute; left: 0; right: 0; bottom: 16px; text-align: center;
+  font-size: 12px; color: var(--texto-3); pointer-events: none;
+}
+.assin-area.assinada .assin-dica, .assin-area.assinada .assin-linha { display: none; }
+
+.doc-preview {
+  background: var(--superficie); border: 1px solid var(--borda-forte); border-radius: 8px;
+  padding: 18px 20px; font-size: 12.5px; line-height: 1.7;
+}
+.doc-preview .cab { text-align: center; border-bottom: 2px solid var(--texto); padding-bottom: 8px; margin-bottom: 12px; }
+.doc-preview .cab h3 { font-size: 14px; letter-spacing: .04em; }
+.doc-preview .lin { display: grid; grid-template-columns: 96px 1fr; gap: 10px; }
+.doc-preview .lin > span:first-child { color: var(--texto-3); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding-top: 3px; }
+.doc-preview .rodape { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--borda-forte); font-size: 11px; color: var(--texto-2); }
+
+/* ---------------------------------------------------------------- opções */
+.opcoes { display: grid; gap: 10px; }
+.opcao {
+  display: flex; align-items: center; gap: 12px; padding: 15px;
+  border: 2px solid var(--borda); border-radius: 12px; cursor: pointer; background: var(--superficie);
+}
+.opcao .marca {
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--borda-forte);
+  flex: none; display: grid; place-items: center;
+}
+.opcao.escolhida { border-color: var(--azul-500); background: var(--azul-100); }
+.opcao.escolhida .marca { border-color: var(--azul-600); background: var(--azul-600); color: #fff; font-size: 13px; }
+.opcao.ok.escolhida { border-color: var(--ok); background: var(--ok-fraco); }
+.opcao.ok.escolhida .marca { border-color: var(--ok); background: var(--ok); }
+.opcao.erro.escolhida { border-color: var(--erro); background: var(--erro-fraco); }
+.opcao.erro.escolhida .marca { border-color: var(--erro); background: var(--erro); }
+.opcao .txt { font-size: 14.5px; font-weight: 650; }
+.opcao .txt small { display: block; font-size: 12px; color: var(--texto-2); font-weight: 500; }
+
+.bt-grande {
+  width: 100%; min-height: 54px; border-radius: 12px; border: none;
+  background: var(--azul-600); color: #fff; font-family: inherit;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+}
+.bt-grande:active { transform: scale(.99); }
+.bt-grande.ok { background: var(--ok); }
+.bt-grande.contorno { background: transparent; border: 2px solid var(--borda-forte); color: var(--texto); }
+.bt-grande:disabled { opacity: .4; cursor: not-allowed; }
+
+.selo-velho {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650;
+  padding: 3px 9px; border-radius: 999px; background: var(--alerta-fraco); color: #7a5307;
+  border: 1px solid #f0dcae;
+}
+
+.secao-tit {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 700;
+  color: var(--texto-3); margin: 18px 0 8px;
+}
+.secao-tit:first-child { margin-top: 0; }
